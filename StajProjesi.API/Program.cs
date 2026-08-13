@@ -9,8 +9,10 @@ var builder = WebApplication.CreateBuilder(args);
 // PostgreSQL bağlantısı
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection")
-    ));
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        o => o.UseNetTopologySuite()
+    )
+);
 
 // Controller desteği
 builder.Services.AddControllers();
@@ -19,7 +21,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173")
+            .AllowAnyOrigin()
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

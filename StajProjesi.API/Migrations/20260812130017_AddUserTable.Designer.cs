@@ -2,8 +2,8 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using StajProjesi.API.Data;
 
@@ -12,68 +12,18 @@ using StajProjesi.API.Data;
 namespace StajProjesi.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812130017_AddUserTable")]
+    partial class AddUserTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "8.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("StajProjesi.API.Models.LineFeature", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<Geometry>("Geometry")
-                        .IsRequired()
-                        .HasColumnType("geometry(LineString,4326)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("tbl_line", (string)null);
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.PointFeature", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<Geometry>("Geometry")
-                        .IsRequired()
-                        .HasColumnType("geometry(Point,4326)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("tbl_point", (string)null);
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.PolygonFeature", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<Geometry>("Geometry")
-                        .IsRequired()
-                        .HasColumnType("geometry(Polygon,4326)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("tbl_polygon", (string)null);
-                });
 
             modelBuilder.Entity("StajProjesi.API.Models.Product", b =>
                 {
