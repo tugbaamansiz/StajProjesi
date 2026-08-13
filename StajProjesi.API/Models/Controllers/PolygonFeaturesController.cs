@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using NetTopologySuite.Geometries;
-using StajProjesi.API.Data;
 using StajProjesi.API.Models;
+using StajProjesi.API.Services;
 
 namespace StajProjesi.API.Controllers
 {
@@ -10,18 +8,19 @@ namespace StajProjesi.API.Controllers
     [Route("api/[controller]")]
     public class PolygonFeaturesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IPolygonFeatureService _polygonService;
 
-        public PolygonFeaturesController(AppDbContext context)
+        public PolygonFeaturesController(
+            IPolygonFeatureService polygonService)
         {
-            _context = context;
+            _polygonService = polygonService;
         }
 
         // GET: api/PolygonFeatures
         [HttpGet]
         public async Task<IActionResult> GetPolygons()
         {
-            var polygons = await _context.Polygons.ToListAsync();
+            var polygons = await _polygonService.GetPolygonsAsync();
 
             var result = polygons.Select(polygon => new
             {
@@ -38,28 +37,6 @@ namespace StajProjesi.API.Controllers
             return Ok(result);
         }
 
-        // GET: api/PolygonFeatures/1
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetPolygon(int id)
-        {
-            var polygon = await _context.Polygons.FindAsync(id);
-
-            if (polygon == null)
-                return NotFound();
-
-            return Ok(new
-            {
-                id = polygon.Id,
-                type = "Polygon",
-                wkt = polygon.Geometry.AsText(),
-                coordinates = polygon.Geometry.Coordinates.Select(c => new
-                {
-                    longitude = c.X,
-                    latitude = c.Y
-                }).ToList()
-            });
-        }
-
         // POST: api/PolygonFeatures
         [HttpPost]
         public async Task<IActionResult> CreatePolygon(PolygonDto dto)
@@ -67,38 +44,13 @@ namespace StajProjesi.API.Controllers
             if (dto.Coordinates == null || dto.Coordinates.Count < 3)
                 return BadRequest("Polygon için en az 3 nokta gerekli.");
 
-            var coordinates = dto.Coordinates
-                .Select(c => new Coordinate(c.Longitude, c.Latitude))
-                .ToList();
-
-            // Polygon kapanması için ilk noktayı sona ekle
-            if (coordinates.First().X != coordinates.Last().X ||
-                coordinates.First().Y != coordinates.Last().Y)
-            {
-                coordinates.Add(coordinates.First());
-            }
-
-            var ring = new LinearRing(coordinates.ToArray());
-
-            var polygon = new Polygon(ring)
-            {
-                SRID = 4326
-            };
-
-            var entity = new PolygonFeature
-            {
-                Geometry = polygon
-            };
-
-            _context.Polygons.Add(entity);
-
-            await _context.SaveChangesAsync();
+            var polygon = await _polygonService.CreatePolygonAsync(
+                dto.Coordinates);
 
             return Ok(new
             {
-                id = entity.Id,
+                id = polygon.Id,
                 type = "Polygon",
-                wkt = entity.Geometry.AsText(),
                 coordinates = dto.Coordinates
             });
         }
@@ -107,14 +59,10 @@ namespace StajProjesi.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePolygon(int id)
         {
-            var polygon = await _context.Polygons.FindAsync(id);
+            var deleted = await _polygonService.DeletePolygonAsync(id);
 
-            if (polygon == null)
+            if (!deleted)
                 return NotFound();
-
-            _context.Polygons.Remove(polygon);
-
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }
