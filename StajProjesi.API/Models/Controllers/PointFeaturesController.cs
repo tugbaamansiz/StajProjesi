@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using StajProjesi.API.Data;
 using StajProjesi.API.Models;
-using NetTopologySuite.Geometries;
+using StajProjesi.API.Services;
 
 namespace StajProjesi.API.Controllers
 {
@@ -10,18 +8,19 @@ namespace StajProjesi.API.Controllers
     [Route("api/[controller]")]
     public class PointFeaturesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IPointFeatureService _pointService;
 
-        public PointFeaturesController(AppDbContext context)
+        public PointFeaturesController(
+            IPointFeatureService pointService)
         {
-            _context = context;
+            _pointService = pointService;
         }
 
         // GET: api/PointFeatures
         [HttpGet]
         public async Task<IActionResult> GetPoints()
         {
-            var points = await _context.Points.ToListAsync();
+            var points = await _pointService.GetPointsAsync();
 
             var result = points.Select(point => new
             {
@@ -42,7 +41,7 @@ namespace StajProjesi.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetPoint(int id)
         {
-            var point = await _context.Points.FindAsync(id);
+            var point = await _pointService.GetPointAsync(id);
 
             if (point == null)
                 return NotFound();
@@ -64,17 +63,10 @@ namespace StajProjesi.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePoint(PointDto dto)
         {
-            var point = new PointFeature
-            {
-                Geometry = new Point(dto.Longitude, dto.Latitude)
-                {
-                    SRID = 4326
-                }
-            };
-
-            _context.Points.Add(point);
-
-            await _context.SaveChangesAsync();
+            var point = await _pointService.CreatePointAsync(
+                dto.Longitude,
+                dto.Latitude
+            );
 
             return Ok(new
             {
@@ -90,14 +82,10 @@ namespace StajProjesi.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePoint(int id)
         {
-            var point = await _context.Points.FindAsync(id);
+            var deleted = await _pointService.DeletePointAsync(id);
 
-            if (point == null)
+            if (!deleted)
                 return NotFound();
-
-            _context.Points.Remove(point);
-
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }

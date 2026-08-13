@@ -3,6 +3,7 @@ using StajProjesi.API.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using StajProjesi.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Controller desteği
 builder.Services.AddControllers();
+builder.Services.AddScoped<IPointFeatureService, PointFeatureService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
