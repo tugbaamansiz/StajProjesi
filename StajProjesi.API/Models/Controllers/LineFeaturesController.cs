@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using NetTopologySuite.Geometries;
-using StajProjesi.API.Data;
 using StajProjesi.API.Models;
+using StajProjesi.API.Services;
 
 namespace StajProjesi.API.Controllers
 {
@@ -10,30 +8,31 @@ namespace StajProjesi.API.Controllers
     [Route("api/[controller]")]
     public class LineFeaturesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ILineFeatureService _lineService;
 
-        public LineFeaturesController(AppDbContext context)
+        public LineFeaturesController(
+            ILineFeatureService lineService)
         {
-            _context = context;
+            _lineService = lineService;
         }
 
         // GET: api/LineFeatures
         [HttpGet]
         public async Task<IActionResult> GetLines()
         {
-            var lines = await _context.Lines.ToListAsync();
+            var lines = await _lineService.GetLinesAsync();
 
             var result = lines.Select(line => new
-{
-    id = line.Id,
-    type = "LineString",
-    wkt = line.Geometry.AsText(),
-    coordinates = line.Geometry.Coordinates.Select(c => new
-    {
-        longitude = c.X,
-        latitude = c.Y
-    }).ToList()
-});
+            {
+                id = line.Id,
+                type = "LineString",
+                wkt = line.Geometry.AsText(),
+                coordinates = line.Geometry.Coordinates.Select(c => new
+                {
+                    longitude = c.X,
+                    latitude = c.Y
+                }).ToList()
+            });
 
             return Ok(result);
         }
@@ -45,20 +44,8 @@ namespace StajProjesi.API.Controllers
             if (dto.Coordinates == null || dto.Coordinates.Count < 2)
                 return BadRequest("Çizgi için en az 2 nokta gerekli.");
 
-            var coordinates = dto.Coordinates
-                .Select(c => new Coordinate(c.Longitude, c.Latitude))
-                .ToArray();
-
-            var line = new LineFeature
-            {
-                Geometry = new LineString(coordinates)
-                {
-                    SRID = 4326
-                }
-            };
-
-            _context.Lines.Add(line);
-            await _context.SaveChangesAsync();
+            var line = await _lineService.CreateLineAsync(
+                dto.Coordinates);
 
             return Ok(new
             {
@@ -72,13 +59,10 @@ namespace StajProjesi.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteLine(int id)
         {
-            var line = await _context.Lines.FindAsync(id);
+            var deleted = await _lineService.DeleteLineAsync(id);
 
-            if (line == null)
+            if (!deleted)
                 return NotFound();
-
-            _context.Lines.Remove(line);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }

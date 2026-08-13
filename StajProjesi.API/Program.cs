@@ -18,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Controller desteği
 builder.Services.AddControllers();
 builder.Services.AddScoped<IPointFeatureService, PointFeatureService>();
+builder.Services.AddScoped<ILineFeatureService, LineFeatureService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
