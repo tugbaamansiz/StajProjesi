@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using StajProjesi.API.Data;
 namespace StajProjesi.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814201243_AddFeatureTrackingFields")]
+    partial class AddFeatureTrackingFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -65,37 +68,6 @@ namespace StajProjesi.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("tbl_line", (string)null);
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.Permission", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Permissions");
                 });
 
             modelBuilder.Entity("StajProjesi.API.Models.PointFeature", b =>
@@ -204,51 +176,6 @@ namespace StajProjesi.API.Migrations
                     b.ToTable("Products");
                 });
 
-            modelBuilder.Entity("StajProjesi.API.Models.Role", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Roles");
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.RolePermission", b =>
-                {
-                    b.Property<int>("RoleId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("PermissionId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("RoleId", "PermissionId");
-
-                    b.HasIndex("PermissionId");
-
-                    b.ToTable("RolePermissions");
-                });
-
             modelBuilder.Entity("StajProjesi.API.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -277,114 +204,6 @@ namespace StajProjesi.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.UserPermission", b =>
-                {
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("PermissionId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("UserId", "PermissionId");
-
-                    b.HasIndex("PermissionId");
-
-                    b.ToTable("UserPermissions");
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.UserRole", b =>
-                {
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RoleId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("UserId", "RoleId");
-
-                    b.HasIndex("RoleId");
-
-                    b.ToTable("UserRoles");
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.RolePermission", b =>
-                {
-                    b.HasOne("StajProjesi.API.Models.Permission", "Permission")
-                        .WithMany("RolePermissions")
-                        .HasForeignKey("PermissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("StajProjesi.API.Models.Role", "Role")
-                        .WithMany("RolePermissions")
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Permission");
-
-                    b.Navigation("Role");
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.UserPermission", b =>
-                {
-                    b.HasOne("StajProjesi.API.Models.Permission", "Permission")
-                        .WithMany("UserPermissions")
-                        .HasForeignKey("PermissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("StajProjesi.API.Models.User", "User")
-                        .WithMany("UserPermissions")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Permission");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.UserRole", b =>
-                {
-                    b.HasOne("StajProjesi.API.Models.Role", "Role")
-                        .WithMany("UserRoles")
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("StajProjesi.API.Models.User", "User")
-                        .WithMany("UserRoles")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Role");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.Permission", b =>
-                {
-                    b.Navigation("RolePermissions");
-
-                    b.Navigation("UserPermissions");
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.Role", b =>
-                {
-                    b.Navigation("RolePermissions");
-
-                    b.Navigation("UserRoles");
-                });
-
-            modelBuilder.Entity("StajProjesi.API.Models.User", b =>
-                {
-                    b.Navigation("UserPermissions");
-
-                    b.Navigation("UserRoles");
                 });
 #pragma warning restore 612, 618
         }

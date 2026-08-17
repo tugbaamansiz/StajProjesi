@@ -18,16 +18,27 @@ namespace StajProjesi.API.Controllers
         [HttpDelete]
         public async Task<IActionResult> ClearAllFeatures()
         {
-            _context.Points.RemoveRange(_context.Points);
-            _context.Lines.RemoveRange(_context.Lines);
-            _context.Polygons.RemoveRange(_context.Polygons);
-
-            await _context.SaveChangesAsync();
-
-            return Ok(new
+            try
             {
-                message = "Tüm geometriler başarıyla silindi."
-            });
+                _context.Points.RemoveRange(_context.Points);
+                _context.Lines.RemoveRange(_context.Lines);
+                _context.Polygons.RemoveRange(_context.Polygons);
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Tüm geometriler başarıyla silindi."
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Geometriler silinirken bir hata oluştu.",
+                    error = ex.Message
+                });
+            }
         }
     }
 }

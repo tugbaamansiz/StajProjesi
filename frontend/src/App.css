@@ -1,756 +1,1488 @@
+/* =========================================================
+   GENEL AYARLAR
+   ========================================================= */
+
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: Arial, sans-serif;
-}
-
-
-/* =========================
-   LOGIN SAYFASI
-   ========================= */
-
-.login-page {
-  min-height: 100vh;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  background: linear-gradient(135deg, #0f172a, #1e3a5f);
-
-  padding: 20px;
-}
-
-.login-card {
-  width: 100%;
-  max-width: 420px;
-
-  background: white;
-
-  padding: 40px;
-
-  border-radius: 20px;
-
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-
-  text-align: center;
-}
-
-
-/* Logo */
-
-.logo {
-  font-size: 55px;
-
-  line-height: 1;
-
-  margin-bottom: 15px;
-}
-
-
-/* Başlık */
-
-.login-card h1 {
-  color: #0f172a;
-
-  margin-bottom: 8px;
-
-  font-size: 36px;
-
-  line-height: 1.2;
-}
-
-
-/* Alt başlık */
-
-.subtitle {
-  color: #64748b;
-
-  margin-top: 0;
-
-  margin-bottom: 30px;
-
-  font-size: 16px;
-
-  line-height: 1.5;
-}
-
-
-/* Input grubu */
-
-.input-group {
-  text-align: left;
-
-  margin-bottom: 20px;
-}
-
-.input-group label {
-  display: block;
-
-  margin-bottom: 8px;
-
-  font-weight: bold;
-
-  color: #334155;
-}
-
-.input-group input {
-  width: 100%;
-
-  padding: 14px;
-
-  border: 1px solid #cbd5e1;
-
-  border-radius: 10px;
-
-  font-size: 15px;
-
-  outline: none;
-}
-
-.input-group input:focus {
-  border-color: #2563eb;
-}
-
-
-/* =========================
-   LOGIN
-========================= */
-
-.login-page {
-  min-height: 100vh;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-
-  background:
-    radial-gradient(
-      circle at top right,
-      rgba(37, 99, 235, 0.35),
-      transparent 35%
-    ),
-    linear-gradient(
-      135deg,
-      #0f172a,
-      #1e3a5f,
-      #2563eb
-    );
-}
-
-
-/* LOGIN CARD */
-
-.login-card {
-  width: 100%;
-  max-width: 430px;
-
-  padding: 42px 40px;
-
-  border-radius: 24px !important;
-
-  background: rgba(255, 255, 255, 0.97) !important;
-
-  box-shadow:
-    0 25px 60px rgba(0, 0, 0, 0.35);
-
-  border: none !important;
-}
-
-
-/* LOGO */
-
-.login-logo {
-  width: 72px;
-  height: 72px;
-
-  margin: 0 auto 18px;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  border-radius: 20px;
-
-  background: linear-gradient(
-    135deg,
-    #2563eb,
-    #1d4ed8
-  );
-
-  color: white;
-
-  font-size: 34px;
-
-  box-shadow:
-    0 10px 25px rgba(37, 99, 235, 0.3);
-}
-
-
-/* TITLE */
-
-.login-card h1 {
-  text-align: center;
-
-  color: #0f172a;
-
-  font-size: 30px;
-
-  margin: 0 0 8px;
-
-  font-weight: 700;
-}
-
-
-.subtitle {
-  text-align: center;
-
-  color: #64748b;
-
-  margin-bottom: 30px;
-
-  font-size: 14px;
-}
-
-
-/* INPUT GROUP */
-
-.input-group {
-  text-align: left;
-
-  margin-bottom: 22px;
-}
-
-
-.input-group label {
-  display: block;
-
-  margin-bottom: 8px;
-
-  color: #334155;
-
-  font-size: 14px;
-
-  font-weight: 600;
-}
-
-
-/* INPUT */
-
-.login-input-wrapper {
-  display: block;
-
-  width: 100%;
-
-  position: relative;
-}
-
-
-.login-input-wrapper > i {
-  position: absolute;
-
-  left: 14px;
-
-  top: 50%;
-
-  transform: translateY(-50%);
-
-  z-index: 2;
-
-  color: #64748b;
-}
-
-
-/* USERNAME */
-
-.login-input-wrapper .p-inputtext {
-  width: 100%;
-
-  height: 48px;
-
-  padding-left: 42px;
-
-  border-radius: 10px;
-
-  border: 1px solid #cbd5e1;
-
-  font-size: 14px;
-}
-
-
-.login-input-wrapper .p-inputtext:focus {
-  border-color: #2563eb;
-
-  box-shadow:
-    0 0 0 2px rgba(37, 99, 235, 0.12);
-}
-
-
-/* PASSWORD */
-
-.login-input-wrapper .p-password {
-  width: 100%;
-}
-
-
-.login-input-wrapper .p-password-input {
-  width: 100%;
-
-  height: 48px;
-
-  padding-left: 42px;
-
-  border-radius: 10px;
-
-  border: 1px solid #cbd5e1;
-
-  font-size: 14px;
-}
-
-
-/* LOGIN BUTTON */
-
-.login-button {
-  width: 100% !important;
-
-  height: 48px;
-
-  margin-top: 5px;
-
-  border-radius: 10px !important;
-
-  background: #2563eb !important;
-
-  border: none !important;
-
-  font-weight: 600;
-
-  font-size: 15px;
-}
-
-
-.login-button:hover {
-  background: #1d4ed8 !important;
-}
-
-
-/* ERROR */
-
-.error-message {
-  display: flex;
-
-  align-items: center;
-
-  gap: 8px;
-
-  background: #fef2f2;
-
-  color: #b91c1c;
-
-  border: 1px solid #fecaca;
-
-  padding: 11px 13px;
-
-  border-radius: 9px;
-
-  margin-bottom: 16px;
-
-  font-size: 13px;
-}
-
-
-/* LOGIN INFO */
-
-.login-info {
-  display: flex;
-
-  justify-content: center;
-
-  align-items: center;
-
-  gap: 7px;
-
-  margin-top: 22px;
-
-  color: #94a3b8;
-
-  font-size: 12px;
-}
-
-
-.login-info i {
-  color: #64748b;
-}
-
-
-/* =========================
-   HARİTA SAYFASI
-   ========================= */
-
-.map-page {
-  height: 100vh;
-
-  display: flex;
-
-  flex-direction: column;
-
-  overflow: hidden;
-}
-
-
-/* =========================
-   HARİTA HEADER
-   ========================= */
-
-.map-header {
-  min-height: 75px;
-
-  background: #0f172a;
-
-  color: white;
-
-  display: flex;
-
-  justify-content: space-between;
-
-  align-items: center;
-
-  padding: 12px 25px;
-
-  gap: 20px;
-
-  flex-shrink: 0;
-}
-
-.map-header h1 {
-  font-size: 22px;
-
-  margin-bottom: 4px;
-
-  line-height: 1.2;
-}
-
-.map-header span {
-  color: #94a3b8;
-
-  font-size: 13px;
-
-  line-height: 1.4;
-}
-
-
-/* =========================
-   HARİTA BUTONLARI
-   ========================= */
-
-.map-buttons {
-  display: flex;
-
-  align-items: center;
-
-  justify-content: flex-end;
-
-  gap: 10px;
-
-  flex-wrap: wrap;
-}
-
-.map-buttons button {
-  border: none;
-
-  padding: 10px 16px;
-
-  border-radius: 8px;
-
-  background: #ffffff;
-
-  color: #0f172a;
-
-  font-size: 14px;
-
-  font-weight: bold;
-
-  cursor: pointer;
-
-  white-space: nowrap;
-
-  transition: all 0.2s ease;
-}
-
-.map-buttons button:hover {
-  background: #e2e8f0;
-
-  transform: translateY(-1px);
-}
-
-.map-buttons button:active {
-  transform: translateY(0);
-}
-
-
-/* Çıkış Yap */
-
-.map-buttons .logout-button {
-  background: #ef4444;
-
-  color: white;
-}
-
-.map-buttons .logout-button:hover {
-  background: #dc2626;
-}
-
-
-/* =========================
-   HARİTA CONTAINER
-   ========================= */
-
-.map-container {
-  position: relative;
-
-  flex: 1;
-
-  min-height: 0;
-}
-
-.map {
-  width: 100%;
-
-  height: 100%;
-}
-
-
-/* =========================
-   HARİTA BİLGİ KUTUSU
-   ========================= */
-
-.map-info {
-  position: absolute;
-
-  top: 20px;
-
-  left: 20px;
-
-  background: rgba(255, 255, 255, 0.95);
-
-  padding: 15px 20px;
-
-  border-radius: 10px;
-
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-
-  display: flex;
-
-  flex-direction: column;
-
-  gap: 5px;
-
-  z-index: 10;
-
-  min-width: 145px;
-}
-
-.map-info strong {
-  color: #0f172a;
-
-  font-size: 16px;
-
-  line-height: 1.3;
-}
-
-.map-info span {
-  color: #64748b;
-
-  font-size: 13px;
-
-  line-height: 1.4;
-}
-
-
-/* =========================
-   OPENLAYERS
-   ========================= */
-
-.ol-control {
-  z-index: 20;
-}
-
-
-/* =========================
-   TABLET / KÜÇÜK EKRAN
-   ========================= */
-
-@media (max-width: 800px) {
-
-  .map-header {
-    min-height: auto;
-
-    padding: 12px 15px;
-
-    flex-direction: column;
-
-    align-items: stretch;
-
-    gap: 12px;
-  }
-
-  .map-header h1 {
-    font-size: 18px;
-  }
-
-  .map-header span {
-    font-size: 12px;
-  }
-
-  .map-buttons {
-    width: 100%;
-
-    display: flex;
-
-    justify-content: flex-start;
-
-    gap: 8px;
-  }
-
-  .map-buttons button {
-    padding: 8px 12px;
-
-    font-size: 13px;
-  }
-
-  .map-info {
-    top: 15px;
-
-    left: 15px;
-
-    padding: 12px 15px;
-
-    min-width: 130px;
-  }
-}
-
-
-/* =========================
-   TELEFON
-   ========================= */
-
-@media (max-width: 500px) {
-
-  .login-card {
-    padding: 30px 20px;
-  }
-
-  .logo {
-    font-size: 48px;
-  }
-
-  .login-card h1 {
-    font-size: 30px;
-  }
-
-  .subtitle {
-    font-size: 14px;
-
-    margin-bottom: 25px;
-  }
-
-  .map-buttons {
-    display: grid;
-
-    grid-template-columns: repeat(2, 1fr);
-
-    width: 100%;
-
-    gap: 8px;
-  }
-
-  .map-buttons button {
-    width: 100%;
-  }
-
-  .map-info {
-    top: 10px;
-
-    left: 10px;
-
-    padding: 10px 12px;
-  }
-
-  .map-info strong {
-    font-size: 14px;
-  }
-
-  .map-info span {
-    font-size: 11px;
-  }
-  .session-timer {
-  font-size: 12px;
-  padding: 8px 10px;
-}
-
-
-  .session-timer {
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
-  padding: 9px 14px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: bold;
-  white-space: nowrap;
-}
-
-.clear-button {
-  background: #f59e0b !important;
-  color: white !important;
-}
-
-.clear-button:hover {
-  background: #d97706 !important;
-}
-@media (max-width: 600px) {
-
-  .login-page {
-    padding: 15px;
-  }
-
-  .login-card {
-    padding: 32px 22px;
-  }
-
-  .login-card h1 {
-    font-size: 26px;
-  }
-
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 html,
 body,
 #root {
-  width: 100%;
-  height: 100%;
-  margin: 0;
+    width: 100%;
+    min-height: 100%;
 }
+
+body {
+    font-family: Arial, sans-serif;
+    overflow-x: hidden;
+}
+
+
+/* =========================================================
+   LOGIN SAYFASI
+   ========================================================= */
+
+.login-page {
+    min-height: 100vh;
+    width: 100%;
+
+    position: relative;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 40px;
+
+    overflow: hidden;
+
+    background:
+        radial-gradient(
+            circle at 15% 20%,
+            rgba(37, 99, 235, 0.28),
+            transparent 28%
+        ),
+        radial-gradient(
+            circle at 85% 80%,
+            rgba(14, 165, 233, 0.22),
+            transparent 30%
+        ),
+        linear-gradient(
+            135deg,
+            #06152d 0%,
+            #082b55 45%,
+            #064b82 100%
+        );
+}
+
+
+/* =========================================================
+   LOGIN ARKA PLAN DESENİ
+   ========================================================= */
+
+.login-page::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    pointer-events: none;
+
+    opacity: 0.45;
+
+    background-image:
+        repeating-linear-gradient(
+            25deg,
+            transparent 0px,
+            transparent 70px,
+            rgba(96, 165, 250, 0.13) 71px,
+            transparent 73px
+        ),
+        repeating-linear-gradient(
+            155deg,
+            transparent 0px,
+            transparent 90px,
+            rgba(56, 189, 248, 0.10) 91px,
+            transparent 93px
+        );
+
+    mask-image: linear-gradient(
+        to bottom,
+        black,
+        transparent 95%
+    );
+}
+
+
+/* =========================================================
+   LOGIN KONUM NOKTALARI
+   ========================================================= */
+
+.login-page::after {
+    content: "";
+
+    position: absolute;
+
+    width: 8px;
+    height: 8px;
+
+    left: 17%;
+    top: 22%;
+
+    border-radius: 50%;
+
+    background: #38bdf8;
+
+    box-shadow:
+        0 0 15px #38bdf8,
+        300px 130px 0 2px #2563eb,
+        690px 390px 0 1px #38bdf8,
+        -40px 500px 0 1px #2563eb,
+        820px -70px 0 1px #38bdf8;
+
+    opacity: 0.8;
+}
+
+
+/* =========================================================
+   LOGIN KARTI
+   ========================================================= */
+
+.login-card {
+    position: relative;
+
+    z-index: 5;
+
+    width: 100%;
+    max-width: 560px;
+
+    padding: 52px 58px;
+
+    background: rgba(255, 255, 255, 0.97);
+
+    border-radius: 28px;
+
+    border: 1px solid rgba(255, 255, 255, 0.85);
+
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.35),
+        0 0 50px rgba(37, 99, 235, 0.18);
+
+    backdrop-filter: blur(20px);
+
+    text-align: center;
+}
+
+
+/* =========================================================
+   LOGIN LOGO
+   ========================================================= */
+
+.login-logo {
+    width: 100%;
+
+    height: auto;
+
+    margin: 0 auto 22px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    background: transparent;
+
+    border: none;
+
+    box-shadow: none;
+
+    overflow: visible;
+}
+
+.login-logo img {
+    width: 250px;
+
+    height: auto;
+
+    max-height: 105px;
+
+    object-fit: contain;
+
+    display: block;
+}
+
+
+/* =========================================================
+   LOGIN BAŞLIK
+   ========================================================= */
+
+.login-card h1 {
+    color: #1e3a8a;
+
+    font-size: 30px;
+
+    margin-bottom: 8px;
+}
+
+
+/* =========================================================
+   LOGIN ALT BAŞLIK
+   ========================================================= */
+
+.login-card .subtitle {
+    margin: 0 0 38px;
+
+    font-size: 17px;
+
+    font-weight: 400;
+
+    color: #64748b;
+
+    letter-spacing: 0.2px;
+}
+
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+
+.input-group {
+    margin-bottom: 24px;
+
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+
+    margin-bottom: 9px;
+
+    font-size: 15px;
+
+    font-weight: 600;
+
+    color: #334155;
+}
+
+.login-input-wrapper {
+    position: relative;
+
+    width: 100%;
+}
+
+.login-input-wrapper input,
+.login-input-wrapper .p-inputtext {
+    width: 100%;
+
+    height: 58px;
+
+    padding: 0 50px;
+
+    border: 1px solid #dbe4ee;
+
+    border-radius: 14px;
+
+    background: #f8fafc;
+
+    color: #1e293b;
+
+    font-size: 15px;
+
+    transition: all 0.25s ease;
+}
+
+.login-input-wrapper input::placeholder {
+    color: #94a3b8;
+}
+
+.login-input-wrapper input:focus,
+.login-input-wrapper .p-inputtext:focus {
+    outline: none;
+
+    background: #ffffff;
+
+    border-color: #2563eb;
+
+    box-shadow:
+        0 0 0 4px rgba(37, 99, 235, 0.10);
+}
+
+
+/* =========================================================
+   LOGIN INPUT İKONLARI
+   ========================================================= */
+
+.login-input-wrapper > i {
+    position: absolute;
+
+    left: 17px;
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    color: #64748b;
+
+    font-size: 18px;
+
+    z-index: 3;
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   PASSWORD
+   ========================================================= */
+
+.login-input-wrapper .p-password {
+    width: 100%;
+}
+
+.login-input-wrapper .p-password-input {
+    width: 100% !important;
+
+    height: 58px !important;
+
+    padding-left: 50px !important;
+    padding-right: 50px !important;
+
+    border-radius: 14px !important;
+}
+
+
+/* =========================================================
+   LOGIN BUTONU
+   ========================================================= */
+
+.login-button {
+    width: 100%;
+
+    height: 58px;
+
+    margin-top: 6px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 12px;
+
+    border: none;
+
+    border-radius: 14px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #1746e8,
+            #0799ed
+        );
+
+    color: #ffffff;
+
+    font-size: 16px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 10px 25px rgba(37, 99, 235, 0.35);
+
+    transition: all 0.25s ease;
+}
+
+.login-button:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 14px 30px rgba(37, 99, 235, 0.45);
+}
+
+.login-button:active {
+    transform: translateY(0);
+}
+
+
+/* =========================================================
+   KAYDOL BUTONU
+   ========================================================= */
+
+.register-button {
+    width: 100% !important;
+
+    height: 58px !important;
+
+    margin-top: 12px !important;
+
+    padding: 0 20px !important;
+
+    display: flex !important;
+
+    align-items: center !important;
+
+    justify-content: center !important;
+
+    gap: 12px !important;
+
+    box-sizing: border-box !important;
+
+    border: 2px solid #2563eb !important;
+
+    border-radius: 14px !important;
+
+    background: #ffffff !important;
+
+    color: #2563eb !important;
+
+    font-family: Arial, sans-serif !important;
+
+    font-size: 16px !important;
+
+    font-weight: 700 !important;
+
+    cursor: pointer !important;
+
+    box-shadow: none !important;
+
+    transition: all 0.25s ease !important;
+}
+
+.register-button i {
+    font-size: 19px !important;
+
+    color: #2563eb !important;
+}
+
+.register-button span {
+    color: #2563eb !important;
+}
+
+.register-button:hover {
+    background: #eff6ff !important;
+
+    border-color: #1746e8 !important;
+
+    color: #1746e8 !important;
+
+    transform: translateY(-2px);
+}
+
+.register-button:active {
+    transform: translateY(0);
+}
+
+
+/* =========================================================
+   JWT BİLGİSİ
+   ========================================================= */
+
+.login-info {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    margin-top: 27px;
+
+    color: #94a3b8;
+
+    font-size: 13px;
+}
+
+
+/* =========================================================
+   HATA MESAJI
+   ========================================================= */
+
+.error-message {
+    margin-top: 15px;
+
+    padding: 11px 14px;
+
+    border-radius: 10px;
+
+    background: #fef2f2;
+
+    border: 1px solid #fecaca;
+
+    color: #dc2626;
+
+    font-size: 13px;
+}
+
+
+/* =========================================================
+   HARİTA SAYFASI
+   ========================================================= */
 
 .map-page {
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+    width: 100%;
+
+    height: 100vh;
+
+    min-height: 100vh;
+
+    display: flex;
+
+    flex-direction: column;
+
+    background: #0b1730;
+
+    overflow: hidden;
 }
+
+
+/* =========================================================
+   HARİTA HEADER
+   ========================================================= */
+
+.map-header {
+    width: 100%;
+
+    min-height: 88px;
+
+    flex-shrink: 0;
+
+    padding: 14px 22px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 18px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #07162f 0%,
+            #0b2347 50%,
+            #092d58 100%
+        );
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+
+    box-shadow:
+        0 5px 20px rgba(0, 0, 0, 0.25);
+
+    position: relative;
+
+    z-index: 20;
+}
+
+
+/* =========================================================
+   HARİTA BAŞLIK ALANI
+   ========================================================= */
+
+.map-header > div:first-child {
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    flex-shrink: 0;
+}
+
+
+/* =========================================================
+   BAŞLIK
+   ========================================================= */
+
+.map-header h1 {
+    margin: 0;
+
+    color: #ffffff;
+
+    font-size: 25px;
+
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    line-height: 1.1;
+}
+
+
+/* =========================================================
+   TÜRKİYE HARİTASI YAZISI
+   ========================================================= */
+
+.map-header > div:first-child span {
+    color: #b9c9dd;
+
+    font-size: 14px;
+
+    font-weight: 500;
+
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   OTURUM SÜRESİ
+   ========================================================= */
+
+.session-timer {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    height: 40px;
+
+    padding: 0 14px;
+
+    border-radius: 10px;
+
+    background: rgba(255, 255, 255, 0.10);
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    color: #e7f1ff;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    white-space: nowrap;
+
+    flex-shrink: 0;
+}
+
+
+/* =========================================================
+   BUTON GRUBU
+   ========================================================= */
+
+.map-buttons {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: flex-start;
+
+    gap: 8px;
+
+    flex-wrap: nowrap;
+
+    margin-left: auto;
+}
+
+
+/* =========================================================
+   HARİTA BUTONLARI
+   ========================================================= */
+
+.map-buttons button {
+    height: 40px;
+
+    padding: 0 14px;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 5px;
+
+    border: 1px solid #d7e0eb;
+
+    border-radius: 10px;
+
+    background: #ffffff;
+
+    color: #334155;
+
+    font-family: Arial, sans-serif;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    white-space: nowrap;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 3px 10px rgba(0, 0, 0, 0.12);
+
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+}
+
+.map-buttons button:hover {
+    transform: translateY(-1px);
+
+    background: #f8fbff;
+
+    box-shadow:
+        0 5px 14px rgba(0, 0, 0, 0.18);
+}
+
+.map-buttons button:active {
+    transform: translateY(0);
+}
+
+
+/* =========================================================
+   TEMİZLE BUTONU
+   ========================================================= */
+
+.map-buttons .clear-button {
+    background: #ffffff;
+
+    color: #475569;
+
+    border-color: #d7e0eb;
+}
+
+
+/* =========================================================
+   ÇIKIŞ BUTONU
+   ========================================================= */
+
+.map-buttons .logout-button {
+    background:
+        linear-gradient(
+            135deg,
+            #ef4444,
+            #dc2626
+        );
+
+    color: #ffffff;
+
+    border-color: #dc2626;
+
+    box-shadow:
+        0 4px 12px rgba(220, 38, 38, 0.30);
+}
+
+.map-buttons .logout-button:hover {
+    background:
+        linear-gradient(
+            135deg,
+            #f05252,
+            #dc2626
+        );
+
+    color: #ffffff;
+}
+
+
+/* =========================================================
+   HARİTA ALANI
+   ========================================================= */
 
 .map-container {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+    position: relative;
+
+    flex: 1;
+
+    width: 100%;
+
+    min-height: 0;
+
+    overflow: hidden;
+
+    background: #dce9ef;
 }
 
+
+/* =========================================================
+   OPENLAYERS HARİTA
+   ========================================================= */
+
 .map {
-  width: 100%;
-  height: 100%;
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+
+    height: 100%;
+
+    z-index: 1;
 }
+
+
+/* =========================================================
+   OPENLAYERS ZOOM BUTONLARI
+   ========================================================= */
+
+.map .ol-zoom {
+    position: absolute;
+
+    top: 16px;
+
+    left: 16px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+    z-index: 10;
+}
+
+.map .ol-zoom button {
+    width: 36px;
+
+    height: 36px;
+
+    border: none;
+
+    border-radius: 9px;
+
+    background: rgba(255, 255, 255, 0.95);
+
+    color: #334155;
+
+    font-size: 20px;
+
+    font-weight: 600;
+
+    box-shadow:
+        0 3px 10px rgba(0, 0, 0, 0.20);
+
+    cursor: pointer;
+}
+
+.map .ol-zoom button:hover {
+    background: #ffffff;
+}
+
+
+/* =========================================================
+   HARİTA BİLGİ KUTUSU
+   ========================================================= */
+
+.map-info {
+    position: absolute;
+
+    left: 18px;
+
+    bottom: 18px;
+
+    z-index: 10;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 3px;
+
+    min-width: 145px;
+
+    padding: 10px 14px;
+
+    background: rgba(255, 255, 255, 0.94);
+
+    border: 1px solid rgba(203, 213, 225, 0.90);
+
+    border-radius: 10px;
+
+    box-shadow:
+        0 4px 15px rgba(0, 0, 0, 0.15);
+
+    backdrop-filter: blur(8px);
+}
+
+.map-info strong {
+    color: #1e293b;
+
+    font-size: 14px;
+
+    font-weight: 700;
+}
+
+.map-info span {
+    color: #64748b;
+
+    font-size: 11px;
+
+    font-weight: 500;
+}
+
+
+/* =========================================================
+   OPENLAYERS ATTRIBUTION
+   ========================================================= */
+
+.map .ol-attribution {
+    right: 8px;
+
+    bottom: 5px;
+
+    font-size: 10px;
+}
+
+
+/* =========================================================
+   DRAW İŞLEMLERİ
+   ========================================================= */
+
+.map .ol-layer canvas {
+    display: block;
+}
+
+
+/* =========================================================
+   1100 PX ALTI
+   ========================================================= */
+
+@media (max-width: 1100px) {
+
+    .map-header {
+        gap: 10px;
+
+        padding: 12px 14px;
+    }
+
+    .map-header h1 {
+        font-size: 21px;
+    }
+
+    .map-header > div:first-child span {
+        display: none;
+    }
+
+    .session-timer {
+        font-size: 13px;
+
+        padding: 0 10px;
+    }
+
+    .map-buttons {
+        gap: 5px;
+    }
+
+    .map-buttons button {
+        padding: 0 10px;
+
+        font-size: 12px;
+    }
+}
+
+
+/* =========================================================
+   850 PX ALTI
+   ========================================================= */
+
+@media (max-width: 850px) {
+
+    .map-header {
+        min-height: 82px;
+
+        flex-wrap: wrap;
+
+        justify-content: center;
+
+        row-gap: 8px;
+    }
+
+    .map-header > div:first-child {
+        width: auto;
+    }
+
+    .session-timer {
+        height: 36px;
+    }
+
+    .map-buttons {
+        margin-left: 0;
+
+        width: auto;
+    }
+
+    .map-buttons button {
+        height: 36px;
+
+        padding: 0 9px;
+    }
+
+    .map-container {
+        min-height: 0;
+    }
+}
+
+
+/* =========================================================
+   700 PX ALTI
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+    .login-page {
+        padding: 20px;
+    }
+
+    .login-card {
+        max-width: 100%;
+
+        padding: 40px 25px;
+
+        border-radius: 23px;
+    }
+
+    .login-logo img {
+        width: 210px;
+
+        max-height: 90px;
+    }
+
+    .login-card .subtitle {
+        font-size: 14px;
+
+        margin-bottom: 30px;
+    }
+
+    .login-input-wrapper input,
+    .login-input-wrapper .p-inputtext {
+        height: 52px;
+    }
+
+    .login-input-wrapper .p-password-input {
+        height: 52px !important;
+    }
+
+    .login-button {
+        height: 54px;
+    }
+
+    .register-button {
+        height: 54px !important;
+
+        font-size: 15px !important;
+    }
+
+
+    /* HARİTA */
+
+    .map-header {
+        padding: 10px;
+
+        min-height: 100px;
+
+        align-items: center;
+
+        flex-wrap: wrap;
+    }
+
+    .map-header h1 {
+        font-size: 19px;
+    }
+
+    .session-timer {
+        height: 34px;
+
+        font-size: 12px;
+    }
+
+    .map-buttons {
+        width: 100%;
+
+        justify-content: center;
+
+        overflow-x: auto;
+
+        padding-bottom: 2px;
+    }
+
+    .map-buttons button {
+        flex-shrink: 0;
+
+        height: 34px;
+
+        font-size: 11px;
+
+        padding: 0 9px;
+    }
+
+    .map-info {
+        left: 10px;
+
+        bottom: 10px;
+    }
+}
+
+
+/* =========================================================
+   ÇOK KÜÇÜK EKRANLAR
+   ========================================================= */
+
+@media (max-width: 450px) {
+
+    .login-page {
+        padding: 15px;
+    }
+
+    .login-card {
+        padding: 32px 20px;
+    }
+
+    .login-logo img {
+        width: 190px;
+    }
+
+    .login-card .subtitle {
+        font-size: 13px;
+    }
+
+    .input-group label {
+        font-size: 14px;
+    }
+
+    .login-input-wrapper input,
+    .login-input-wrapper .p-inputtext {
+        height: 50px;
+
+        font-size: 14px;
+    }
+
+    .login-input-wrapper .p-password-input {
+        height: 50px !important;
+    }
+
+    .login-button {
+        height: 52px;
+
+        font-size: 15px;
+    }
+
+    .register-button {
+        height: 52px !important;
+
+        font-size: 14px !important;
+    }
+
+
+    /* HARİTA */
+
+    .map-header {
+        min-height: 105px;
+
+        padding: 8px;
+    }
+
+    .map-header h1 {
+        font-size: 17px;
+    }
+
+    .session-timer {
+        font-size: 11px;
+
+        padding: 0 8px;
+    }
+
+    .map-buttons {
+        gap: 4px;
+    }
+
+    .map-buttons button {
+        height: 32px;
+
+        padding: 0 7px;
+
+        font-size: 10px;
+    }
+
+    .map-info {
+        display: none;
+    }
+}
+
+/* =========================================================
+   OBJE DETAY POPUP
+   ========================================================= */
+
+.feature-popup {
+    min-width: 300px;
+    max-width: 340px;
+    padding: 18px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid #dbe4ee;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+    color: #1e293b;
+    text-align: left;
+    position: relative;
+}
+
+.feature-popup h3 {
+    margin: 0 28px 4px 0;
+    color: #1e3a8a;
+    font-size: 19px;
+}
+
+.feature-popup .popup-type {
+    margin-bottom: 16px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.feature-popup label {
+    display: block;
+    margin: 10px 0 6px;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.feature-popup input:not([type="color"]) {
+    width: 100%;
+    height: 40px;
+    padding: 0 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    background: #f8fafc;
+    color: #1e293b;
+    outline: none;
+}
+
+.feature-popup input:not([type="color"]):focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+
+.popup-close {
+    position: absolute;
+    right: 10px;
+    top: 8px;
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 25px;
+    cursor: pointer;
+}
+
+.popup-color-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.popup-color-row input[type="color"] {
+    width: 45px;
+    height: 40px;
+    padding: 2px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.popup-geometry-button {
+    width: 100%;
+    min-height: 40px;
+    margin-top: 14px;
+    border: 1px solid #2563eb;
+    border-radius: 9px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.popup-geometry-button:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
+
+.popup-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.popup-actions button {
+    flex: 1;
+    min-height: 42px;
+    border-radius: 9px;
+    border: none;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.popup-save-button {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.popup-delete-button {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.popup-actions button:disabled {
+    opacity: 0.65;
+    cursor: default;
+}
+
+/* =========================================================
+   OBJE DETAY POPUP
+   ========================================================= */
+
+.feature-popup {
+    position: absolute;
+    z-index: 50;
+    width: 320px;
+    max-width: calc(100vw - 40px);
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid #dbe4ee;
+    border-radius: 14px;
+    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.25);
+    backdrop-filter: blur(10px);
+}
+
+.feature-popup-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 15px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.feature-popup-header > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.feature-popup-header strong {
+    color: #1e293b;
+    font-size: 16px;
+}
+
+.feature-popup-header span {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.feature-popup-close {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 21px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.feature-popup-close:hover {
+    background: #e2e8f0;
+}
+
+.feature-popup-field {
+    margin-bottom: 13px;
+}
+
+.feature-popup-field label {
+    display: block;
+    margin-bottom: 6px;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.feature-popup-field input[type="text"] {
+    width: 100%;
+    height: 40px;
+    padding: 0 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    outline: none;
+    background: #f8fafc;
+    color: #1e293b;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+}
+
+.feature-popup-field input[type="text"]:focus {
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+
+.feature-color-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.feature-color-row input[type="color"] {
+    width: 44px;
+    height: 40px;
+    padding: 3px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.feature-color-row input[type="text"] {
+    flex: 1;
+}
+
+.feature-popup-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.feature-popup-actions button {
+    width: 100%;
+    min-height: 39px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.geometry-button {
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #334155;
+}
+
+.geometry-button:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.update-button {
+    border: 1px solid #2563eb;
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.update-button:hover {
+    background: #1d4ed8;
+}
+
+.update-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.delete-feature-button {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.delete-feature-button:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+@media (max-width: 600px) {
+    .feature-popup {
+        width: 290px;
+    }
 }

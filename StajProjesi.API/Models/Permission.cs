@@ -1,30 +1,28 @@
 namespace StajProjesi.API.Models;
 
-public class User
+public class Permission
 {
     public int Id { get; set; }
 
-    public string Username { get; set; } = "";
+    public string Name { get; set; } = "";
 
-    public string Password { get; set; } = "";
+    public string? Description { get; set; }
 
     public bool IsDeleted { get; set; } = false;
 
     public bool IsActive { get; set; } = true;
 
-    public DateTime ModifiedDate { get; set; } = DateTime.UtcNow;
+
+    // =====================================================
+    // PERMISSION - ROLE
+    // =====================================================
+
+    public ICollection<RolePermission> RolePermissions { get; set; }
+        = new List<RolePermission>();
 
 
     // =====================================================
-    // USER - ROLE
-    // =====================================================
-
-    public ICollection<UserRole> UserRoles { get; set; }
-        = new List<UserRole>();
-
-
-    // =====================================================
-    // USER - DIRECT PERMISSION
+    // PERMISSION - USER
     // =====================================================
 
     public ICollection<UserPermission> UserPermissions { get; set; }

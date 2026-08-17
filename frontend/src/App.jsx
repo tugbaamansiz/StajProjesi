@@ -25,14 +25,25 @@ import LineString from "ol/geom/LineString";
 import Polygon from "ol/geom/Polygon";
 
 import Draw from "ol/interaction/Draw";
+import Modify from "ol/interaction/Modify";
+import Collection from "ol/Collection";
+
+import Style from "ol/style/Style";
+import Stroke from "ol/style/Stroke";
+import Fill from "ol/style/Fill";
+import CircleStyle from "ol/style/Circle";
 
 import { fromLonLat, toLonLat } from "ol/proj";
 
 import "ol/ol.css";
 import "./App.css";
 
+import basarsoftLogo from "./assets/basarsoft-logo.png";
+import AdminPanel from "./AdminPanel";
+
 
 function App() {
+  const [showPassword, setShowPassword] = useState(false);
 
   // =========================
   // STATE
@@ -45,6 +56,59 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [remainingTime, setRemainingTime] = useState(0);
 
+  // =========================
+  // DETAY POPUP
+  // =========================
+
+  const [selectedFeature, setSelectedFeature] = useState(null);
+  const [selectedName, setSelectedName] = useState("");
+  const [selectedColor, setSelectedColor] = useState("#3388ff");
+  const [popupPosition, setPopupPosition] = useState(null);
+  const [isGeometryEditing, setIsGeometryEditing] = useState(false);
+  const [savingFeature, setSavingFeature] = useState(false);
+
+  // =========================
+  // ENVANTERLERİ GÖSTER
+  // =========================
+
+  const [showInventoryList, setShowInventoryList] = useState(false);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryData, setInventoryData] = useState({
+    points: [],
+    lines: [],
+    polygons: []
+  });
+
+  const authHeaders = {
+    Authorization: `Bearer ${token}`
+  };
+
+  // =========================
+  // ADMIN KONTROLÜ
+  // =========================
+
+  const isAdmin = (() => {
+    if (!token) {
+      return false;
+    }
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const role = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
+
+      if (Array.isArray(role)) {
+        return role.includes("Admin");
+      }
+
+      return role === "Admin";
+    }
+    catch {
+      return false;
+    }
+  })();
+
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+
 
   // =========================
   // REFS
@@ -55,6 +119,7 @@ function App() {
 
   const vectorSourceRef = useRef(null);
   const drawRef = useRef(null);
+  const modifyRef = useRef(null);
 
 
   // =========================
@@ -156,6 +221,7 @@ function App() {
         "http://localhost:5166/api/ClearFeatures",
         {
           method: "DELETE",
+          headers: authHeaders
         }
       );
 
@@ -274,6 +340,368 @@ function App() {
   }, [token]);
 
 
+  // =====================================================
+  // DETAY POPUP YARDIMCI FONKSİYONLARI
+  // =====================================================
+
+  const closeFeaturePopup = () => {
+    if (modifyRef.current && mapRef.current) {
+      mapRef.current.removeInteraction(modifyRef.current);
+    }
+
+    modifyRef.current = null;
+    setIsGeometryEditing(false);
+    setSelectedFeature(null);
+    setPopupPosition(null);
+  };
+
+  const getFeatureType = (feature) => {
+    return feature?.get("featureType") || "";
+  };
+
+  const getFeatureCoordinatesForApi = (feature) => {
+    const geometry = feature.getGeometry();
+
+    if (!geometry) {
+      return null;
+    }
+
+    if (geometry instanceof Point) {
+      const [longitude, latitude] = toLonLat(
+        geometry.getCoordinates()
+      );
+
+      return {
+        longitude,
+        latitude
+      };
+    }
+
+    if (geometry instanceof LineString) {
+      return geometry.getCoordinates().map((coordinate) => {
+        const [longitude, latitude] = toLonLat(coordinate);
+
+        return {
+          longitude,
+          latitude
+        };
+      });
+    }
+
+    if (geometry instanceof Polygon) {
+      return geometry.getCoordinates()[0].map((coordinate) => {
+        const [longitude, latitude] = toLonLat(coordinate);
+
+        return {
+          longitude,
+          latitude
+        };
+      });
+    }
+
+    return null;
+  };
+
+  const applyFeatureStyle = (feature, color, type) => {
+    if (type === "Point") {
+      feature.setStyle(
+        new Style({
+          image: new CircleStyle({
+            radius: 7,
+            fill: new Fill({
+              color: color || "#3388ff"
+            }),
+            stroke: new Stroke({
+              color: "#ffffff",
+              width: 2
+            })
+          })
+        })
+      );
+    }
+
+    if (type === "LineString") {
+      feature.setStyle(
+        new Style({
+          stroke: new Stroke({
+            color: color || "#3388ff",
+            width: 4
+          })
+        })
+      );
+    }
+
+    if (type === "Polygon") {
+      feature.setStyle(
+        new Style({
+          stroke: new Stroke({
+            color: color || "#3388ff",
+            width: 4
+          }),
+          fill: new Fill({
+            color: color
+              ? color + "40"
+              : "rgba(51, 136, 255, 0.25)"
+          })
+        })
+      );
+    }
+  };
+
+  const startGeometryEditing = () => {
+    if (!selectedFeature || !mapRef.current) {
+      return;
+    }
+
+    if (modifyRef.current) {
+      mapRef.current.removeInteraction(modifyRef.current);
+    }
+
+    const modify = new Modify({
+      features: new Collection([selectedFeature])
+    });
+
+    modifyRef.current = modify;
+    mapRef.current.addInteraction(modify);
+    setIsGeometryEditing(true);
+  };
+
+  const finishGeometryEditing = () => {
+    if (modifyRef.current && mapRef.current) {
+      mapRef.current.removeInteraction(modifyRef.current);
+    }
+
+    modifyRef.current = null;
+    setIsGeometryEditing(false);
+  };
+
+  const updateSelectedFeature = async () => {
+    if (!selectedFeature || !token) {
+      return;
+    }
+
+    const id = selectedFeature.get("featureId");
+    const type = getFeatureType(selectedFeature);
+    const coordinates = getFeatureCoordinatesForApi(selectedFeature);
+
+    if (!id || !type || !coordinates) {
+      alert("Çizim bilgileri bulunamadı.");
+      return;
+    }
+
+    if (selectedName.trim() === "") {
+      alert("Lütfen bir isim girin.");
+      return;
+    }
+
+    if (!/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(selectedColor.trim())) {
+      alert("Lütfen geçerli bir HEX renk girin. Örnek: #ff0000");
+      return;
+    }
+
+    const endpointMap = {
+      Point: "PointFeatures",
+      LineString: "LineFeatures",
+      Polygon: "PolygonFeatures"
+    };
+
+    const endpoint = endpointMap[type];
+
+    if (!endpoint) {
+      return;
+    }
+
+    setSavingFeature(true);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5166/api/${endpoint}/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders
+          },
+          body: JSON.stringify(
+            type === "Point"
+              ? {
+                  longitude: coordinates.longitude,
+                  latitude: coordinates.latitude,
+                  name: selectedName.trim(),
+                  color: selectedColor.trim()
+                }
+              : {
+                  coordinates,
+                  name: selectedName.trim(),
+                  color: selectedColor.trim()
+                }
+          )
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Çizim güncellenemedi.");
+      }
+
+      selectedFeature.set("name", selectedName.trim());
+      selectedFeature.set("color", selectedColor.trim());
+      applyFeatureStyle(
+        selectedFeature,
+        selectedColor.trim(),
+        type
+      );
+
+      finishGeometryEditing();
+      alert("Çizim başarıyla güncellendi.");
+    }
+    catch (error) {
+      console.error("Çizim güncelleme hatası:", error);
+      alert("Çizim güncellenemedi.");
+    }
+    finally {
+      setSavingFeature(false);
+    }
+  };
+
+  const deleteSelectedFeature = async () => {
+    if (!selectedFeature || !token) {
+      return;
+    }
+
+    const id = selectedFeature.get("featureId");
+    const type = getFeatureType(selectedFeature);
+
+    const confirmed = window.confirm(
+      `"${selectedFeature.get("name") || "Bu çizim"}" adlı objeyi silmek istediğinize emin misiniz?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const endpointMap = {
+      Point: "PointFeatures",
+      LineString: "LineFeatures",
+      Polygon: "PolygonFeatures"
+    };
+
+    const endpoint = endpointMap[type];
+
+    if (!id || !endpoint) {
+      alert("Çizim bilgileri bulunamadı.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:5166/api/${endpoint}/${id}`,
+        {
+          method: "DELETE",
+          headers: authHeaders
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Çizim silinemedi.");
+      }
+
+      vectorSourceRef.current?.removeFeature(
+        selectedFeature
+      );
+
+      closeFeaturePopup();
+      alert("Çizim başarıyla silindi.");
+    }
+    catch (error) {
+      console.error("Çizim silme hatası:", error);
+      alert("Çizim silinemedi.");
+    }
+  };
+
+  // =========================
+  // ENVANTERLERİ GETİR
+  // =========================
+
+  const openInventoryList = async () => {
+    if (!token) {
+      return;
+    }
+
+    setShowInventoryList(true);
+    setInventoryLoading(true);
+
+    try {
+      const [pointsResponse, linesResponse, polygonsResponse] =
+        await Promise.all([
+          fetch(
+            "http://localhost:5166/api/PointFeatures",
+            {
+              headers: authHeaders
+            }
+          ),
+          fetch(
+            "http://localhost:5166/api/LineFeatures",
+            {
+              headers: authHeaders
+            }
+          ),
+          fetch(
+            "http://localhost:5166/api/PolygonFeatures",
+            {
+              headers: authHeaders
+            }
+          )
+        ]);
+
+      if (
+        !pointsResponse.ok ||
+        !linesResponse.ok ||
+        !polygonsResponse.ok
+      ) {
+        throw new Error("Envanterler alınamadı.");
+      }
+
+      const [points, lines, polygons] = await Promise.all([
+        pointsResponse.json(),
+        linesResponse.json(),
+        polygonsResponse.json()
+      ]);
+
+      setInventoryData({
+        points: points.map(point => ({
+          id: point.id,
+          name: point.name || "İsimsiz",
+          color: point.color || "#3388ff"
+        })),
+        lines: lines.map(line => ({
+          id: line.id,
+          name: line.name || "İsimsiz",
+          color: line.color || "#3388ff"
+        })),
+        polygons: polygons.map(polygon => ({
+          id: polygon.id,
+          name: polygon.name || "İsimsiz",
+          color: polygon.color || "#3388ff"
+        }))
+      });
+    }
+    catch (error) {
+      console.error("Envanterleri getirme hatası:", error);
+
+      setInventoryData({
+        points: [],
+        lines: [],
+        polygons: []
+      });
+
+      alert("Envanterler alınamadı.");
+    }
+    finally {
+      setInventoryLoading(false);
+    }
+  };
+
+
   // =========================
   // HARİTA
   // =========================
@@ -343,7 +771,7 @@ function App() {
           center:
             fromLonLat([35, 39]),
 
-          zoom: 5.5,
+          zoom: 6.1,
 
         }),
 
@@ -375,7 +803,10 @@ function App() {
 
           const response =
             await fetch(
-              "http://localhost:5166/api/PointFeatures"
+              "http://localhost:5166/api/PointFeatures",
+              {
+                headers: authHeaders
+              }
             );
 
 
@@ -403,6 +834,32 @@ function App() {
 
               });
 
+            feature.setId(point.id);
+            feature.setProperties({
+              featureId: point.id,
+              featureType: "Point",
+              name: point.name || "",
+              color: point.color || "#3388ff"
+            });
+
+            feature.setStyle(
+              new Style({
+                image:
+                  new CircleStyle({
+                    radius: 7,
+                    fill:
+                      new Fill({
+                        color:
+                          point.color || "#3388ff"
+                      }),
+                    stroke:
+                      new Stroke({
+                        color: "#ffffff",
+                        width: 2
+                      })
+                  })
+              })
+            );
 
             vectorSource.addFeature(
               feature
@@ -434,7 +891,10 @@ function App() {
 
           const response =
             await fetch(
-              "http://localhost:5166/api/LineFeatures"
+              "http://localhost:5166/api/LineFeatures",
+              {
+                headers: authHeaders
+              }
             );
 
 
@@ -469,6 +929,24 @@ function App() {
 
               });
 
+            feature.setId(line.id);
+            feature.setProperties({
+              featureId: line.id,
+              featureType: "LineString",
+              name: line.name || "",
+              color: line.color || "#3388ff"
+            });
+
+            feature.setStyle(
+              new Style({
+                stroke:
+                  new Stroke({
+                    color:
+                      line.color || "#3388ff",
+                    width: 4
+                  })
+              })
+            );
 
             vectorSource.addFeature(
               feature
@@ -500,7 +978,10 @@ function App() {
 
           const response =
             await fetch(
-              "http://localhost:5166/api/PolygonFeatures"
+              "http://localhost:5166/api/PolygonFeatures",
+              {
+                headers: authHeaders
+              }
             );
 
 
@@ -535,6 +1016,31 @@ function App() {
 
               });
 
+            feature.setId(polygon.id);
+            feature.setProperties({
+              featureId: polygon.id,
+              featureType: "Polygon",
+              name: polygon.name || "",
+              color: polygon.color || "#3388ff"
+            });
+
+            feature.setStyle(
+              new Style({
+                stroke:
+                  new Stroke({
+                    color:
+                      polygon.color || "#3388ff",
+                    width: 4
+                  }),
+                fill:
+                  new Fill({
+                    color:
+                      polygon.color
+                        ? polygon.color + "40"
+                        : "rgba(51, 136, 255, 0.25)"
+                  })
+              })
+            );
 
             vectorSource.addFeature(
               feature
@@ -564,11 +1070,59 @@ function App() {
     loadPolygons();
 
 
+    // =====================================================
+    // HARİTADA OBJENİN ÜZERİNE TIKLAYINCA DETAY POPUP
+    // =====================================================
+
+    const handleMapClick = (event) => {
+      if (drawRef.current) {
+        return;
+      }
+
+      let clickedFeature = null;
+
+      map.forEachFeatureAtPixel(
+        event.pixel,
+        (feature) => {
+          if (feature.get("featureId")) {
+            clickedFeature = feature;
+            return true;
+          }
+          return false;
+        },
+        { hitTolerance: 6 }
+      );
+
+      if (!clickedFeature) {
+        closeFeaturePopup();
+        return;
+      }
+
+      const color = clickedFeature.get("color") || "#3388ff";
+      const name = clickedFeature.get("name") || "";
+
+      setSelectedFeature(clickedFeature);
+      setSelectedName(name);
+      setSelectedColor(color);
+      setPopupPosition(event.pixel);
+      setIsGeometryEditing(false);
+    };
+
+    map.on("singleclick", handleMapClick);
+
+
     // =========================
     // TEMİZLEME
     // =========================
 
     return () => {
+
+      map.un("singleclick", handleMapClick);
+
+      if (modifyRef.current) {
+        map.removeInteraction(modifyRef.current);
+        modifyRef.current = null;
+      }
 
       map.setTarget(null);
 
@@ -578,7 +1132,158 @@ function App() {
 
     };
 
-  }, [token]);
+  }, [token, showAdminPanel]);
+
+
+  // =====================================================
+// GEÇİCİ ENVANTER ANALİZİ
+// =====================================================
+
+const startInventoryAnalysis = () => {
+
+  if (!mapRef.current || !vectorSourceRef.current) {
+    return;
+  }
+
+  // Önceki çizim varsa kaldır
+  if (drawRef.current) {
+    mapRef.current.removeInteraction(
+      drawRef.current
+    );
+  }
+
+  const draw =
+    new Draw({
+      source:
+        vectorSourceRef.current,
+      type:
+        "Polygon"
+    });
+
+  drawRef.current =
+    draw;
+
+  mapRef.current.addInteraction(
+    draw
+  );
+
+  draw.on(
+    "drawend",
+    async (event) => {
+
+      const geometry =
+        event.feature.getGeometry();
+
+      const coordinates =
+        geometry.getCoordinates()[0];
+
+      const convertedCoordinates =
+        coordinates.map(
+          coordinate => {
+
+            const [
+              longitude,
+              latitude
+            ] =
+              toLonLat(
+                coordinate
+              );
+
+            return {
+              longitude:
+                longitude,
+              latitude:
+                latitude
+            };
+          }
+        );
+
+      try {
+
+        const response =
+          await fetch(
+            "http://localhost:5166/api/Analysis/inventory",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+                ...authHeaders
+              },
+
+              body:
+                JSON.stringify({
+                  coordinates:
+                    convertedCoordinates
+                })
+            }
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            "Envanter analizi yapılamadı."
+          );
+        }
+
+        const result =
+          await response.json();
+
+        const pointNames =
+          (result.pointNames || [])
+            .map(name => "• " + (name || "İsimsiz"))
+            .join("\n") || "• Yok";
+
+        const lineNames =
+          (result.lineNames || [])
+            .map(name => "• " + (name || "İsimsiz"))
+            .join("\n") || "• Yok";
+
+        const polygonNames =
+          (result.polygonNames || [])
+            .map(name => "• " + (name || "İsimsiz"))
+            .join("\n") || "• Yok";
+
+        alert(
+          "Envanter Analizi Sonucu:\n\n" +
+          "📍 Kesişen noktalar: " + result.pointCount + "\n" +
+          pointNames + "\n\n" +
+          "📏 Kesişen çizgiler: " + result.lineCount + "\n" +
+          lineNames + "\n\n" +
+          "🔷 Kesişen alanlar: " + result.polygonCount + "\n" +
+          polygonNames + "\n\n" +
+          "Toplam envanter: " + result.totalCount
+        );
+
+      }
+      catch (error) {
+
+        console.error(
+          "Envanter analizi hatası:",
+          error
+        );
+
+        alert(
+          "Envanter analizi yapılamadı."
+        );
+      }
+
+      // Geçici polygonu haritadan kaldır
+      vectorSourceRef.current?.removeFeature(
+        event.feature
+      );
+
+      // Çizim aracını kapat
+      mapRef.current?.removeInteraction(
+        draw
+      );
+
+      drawRef.current =
+        null;
+    }
+  );
+};
 
 
   // =========================
@@ -636,16 +1341,166 @@ function App() {
           const geometry =
             event.feature.getGeometry();
 
+          // =========================================
+          // KULLANICIDAN İSİM AL
+          // =========================================
 
-          // =========================
+          const name =
+            window.prompt(
+              "Çizimin ismini girin:"
+            );
+
+          // Kullanıcı İptal'e basarsa çizimi kaldır
+          if (name === null) {
+
+            vectorSourceRef.current?.removeFeature(
+              event.feature
+            );
+
+            mapRef.current?.removeInteraction(
+              draw
+            );
+
+            drawRef.current = null;
+
+            return;
+          }
+
+          // Boş isim girilmesini engelle
+          if (name.trim() === "") {
+
+            vectorSourceRef.current?.removeFeature(
+              event.feature
+            );
+
+            alert(
+              "Lütfen bir isim girin."
+            );
+
+            mapRef.current?.removeInteraction(
+              draw
+            );
+
+            drawRef.current = null;
+
+            return;
+          }
+
+          // =========================================
+          // KULLANICIDAN RENK AL
+          // =========================================
+
+          const color =
+            window.prompt(
+              "Çizimin rengini girin.\nÖrnek: #ff0000",
+              "#3388ff"
+            );
+
+          // Kullanıcı İptal'e basarsa çizimi kaldır
+          if (color === null) {
+
+            vectorSourceRef.current?.removeFeature(
+              event.feature
+            );
+
+            mapRef.current?.removeInteraction(
+              draw
+            );
+
+            drawRef.current = null;
+
+            return;
+          }
+
+          const trimmedColor =
+            color.trim();
+
+          // Basit HEX renk kontrolü
+          if (!/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(trimmedColor)) {
+
+            vectorSourceRef.current?.removeFeature(
+              event.feature
+            );
+
+            alert(
+              "Lütfen geçerli bir HEX renk girin. Örnek: #ff0000"
+            );
+
+            mapRef.current?.removeInteraction(
+              draw
+            );
+
+            drawRef.current = null;
+
+            return;
+          }
+
+          // =========================================
+          // ÇİZİME SEÇİLEN RENGİ UYGULA
+          // =========================================
+
+          if (type === "Point") {
+
+            event.feature.setStyle(
+              new Style({
+                image:
+                  new CircleStyle({
+                    radius: 7,
+                    fill:
+                      new Fill({
+                        color: trimmedColor
+                      }),
+                    stroke:
+                      new Stroke({
+                        color: "#ffffff",
+                        width: 2
+                      })
+                  })
+              })
+            );
+
+          }
+
+          if (type === "LineString") {
+
+            event.feature.setStyle(
+              new Style({
+                stroke:
+                  new Stroke({
+                    color: trimmedColor,
+                    width: 4
+                  })
+              })
+            );
+
+          }
+
+          if (type === "Polygon") {
+
+            event.feature.setStyle(
+              new Style({
+                stroke:
+                  new Stroke({
+                    color: trimmedColor,
+                    width: 4
+                  }),
+                fill:
+                  new Fill({
+                    color: trimmedColor + "40"
+                  })
+              })
+            );
+
+          }
+
+          // =========================================
           // POINT
-          // =========================
+          // =========================================
 
           if (type === "Point") {
 
             const coordinates =
               geometry.getCoordinates();
-
 
             const [
               longitude,
@@ -655,37 +1510,44 @@ function App() {
                 coordinates
               );
 
-
             try {
 
-              await fetch(
-                "http://localhost:5166/api/PointFeatures",
-                {
+              const response =
+                await fetch(
+                  "http://localhost:5166/api/PointFeatures",
+                  {
+                    method: "POST",
 
-                  method:
-                    "POST",
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                      ...authHeaders
+                    },
 
-                  headers: {
-
-                    "Content-Type":
-                      "application/json"
-
-                  },
-
-                  body:
-                    JSON.stringify({
-
-                      longitude:
-                        longitude,
-
-                      latitude:
-                        latitude
-
+                    body: JSON.stringify({
+                      longitude: longitude,
+                      latitude: latitude,
+                      name: name.trim(),
+                      color: trimmedColor
                     })
+                  }
+                );
 
-                }
-              );
+              if (!response.ok) {
+                throw new Error(
+                  "Point kaydedilemedi."
+                );
+              }
 
+              const savedPoint = await response.json();
+
+              event.feature.setId(savedPoint.id);
+              event.feature.setProperties({
+                featureId: savedPoint.id,
+                featureType: "Point",
+                name: name.trim(),
+                color: trimmedColor
+              });
 
               console.log(
                 "Point kaydedildi."
@@ -699,20 +1561,24 @@ function App() {
                 error
               );
 
-            }
+              vectorSourceRef.current?.removeFeature(
+                event.feature
+              );
 
+              alert(
+                "Point kaydedilemedi."
+              );
+            }
           }
 
-
-          // =========================
+          // =========================================
           // LINE
-          // =========================
+          // =========================================
 
           if (type === "LineString") {
 
             const coordinates =
               geometry.getCoordinates();
-
 
             const convertedCoordinates =
               coordinates.map(
@@ -726,20 +1592,12 @@ function App() {
                       coordinate
                     );
 
-
                   return {
-
-                    longitude:
-                      longitude,
-
-                    latitude:
-                      latitude
-
+                    longitude: longitude,
+                    latitude: latitude
                   };
-
                 }
               );
-
 
             try {
 
@@ -747,39 +1605,38 @@ function App() {
                 await fetch(
                   "http://localhost:5166/api/LineFeatures",
                   {
-
-                    method:
-                      "POST",
+                    method: "POST",
 
                     headers: {
-
                       "Content-Type":
-                        "application/json"
-
+                        "application/json",
+                      ...authHeaders
                     },
 
-                    body:
-                      JSON.stringify({
-
-                        coordinates:
-                          convertedCoordinates
-
-                      })
-
+                    body: JSON.stringify({
+                      coordinates:
+                        convertedCoordinates,
+                      name: name.trim(),
+                      color: trimmedColor
+                    })
                   }
                 );
 
-
               if (!response.ok) {
-
-                console.error(
+                throw new Error(
                   "Line kaydedilemedi."
                 );
-
-                return;
-
               }
 
+              const savedLine = await response.json();
+
+              event.feature.setId(savedLine.id);
+              event.feature.setProperties({
+                featureId: savedLine.id,
+                featureType: "LineString",
+                name: name.trim(),
+                color: trimmedColor
+              });
 
               console.log(
                 "Line kaydedildi."
@@ -793,20 +1650,24 @@ function App() {
                 error
               );
 
-            }
+              vectorSourceRef.current?.removeFeature(
+                event.feature
+              );
 
+              alert(
+                "Line kaydedilemedi."
+              );
+            }
           }
 
-
-          // =========================
+          // =========================================
           // POLYGON
-          // =========================
+          // =========================================
 
           if (type === "Polygon") {
 
             const coordinates =
               geometry.getCoordinates()[0];
-
 
             const convertedCoordinates =
               coordinates.map(
@@ -820,20 +1681,12 @@ function App() {
                       coordinate
                     );
 
-
                   return {
-
-                    longitude:
-                      longitude,
-
-                    latitude:
-                      latitude
-
+                    longitude: longitude,
+                    latitude: latitude
                   };
-
                 }
               );
-
 
             try {
 
@@ -841,43 +1694,156 @@ function App() {
                 await fetch(
                   "http://localhost:5166/api/PolygonFeatures",
                   {
-
-                    method:
-                      "POST",
+                    method: "POST",
 
                     headers: {
-
                       "Content-Type":
-                        "application/json"
-
+                        "application/json",
+                      ...authHeaders
                     },
 
-                    body:
-                      JSON.stringify({
-
-                        coordinates:
-                          convertedCoordinates
-
-                      })
-
+                    body: JSON.stringify({
+                      coordinates:
+                        convertedCoordinates,
+                      name: name.trim(),
+                      color: trimmedColor
+                    })
                   }
                 );
 
-
               if (!response.ok) {
-
-                console.error(
+                throw new Error(
                   "Polygon kaydedilemedi."
                 );
-
-                return;
-
               }
 
+              const savedPolygon = await response.json();
+
+              event.feature.setId(savedPolygon.id);
+              event.feature.setProperties({
+                featureId: savedPolygon.id,
+                featureType: "Polygon",
+                name: name.trim(),
+                color: trimmedColor
+              });
 
               console.log(
                 "Polygon kaydedildi."
               );
+
+              // =========================================
+              // POLYGON İLE KESİŞEN ENVANTERLERİ BUL
+              // =========================================
+
+              try {
+                const analysisResponse =
+                  await fetch(
+                    "http://localhost:5166/api/Analysis/intersection",
+                    {
+                      method: "POST",
+
+                      headers: {
+                        "Content-Type":
+                          "application/json",
+                        ...authHeaders
+                      },
+
+                      body: JSON.stringify({
+                        coordinates:
+                          convertedCoordinates
+                      })
+                    }
+                  );
+
+                if (!analysisResponse.ok) {
+                  throw new Error(
+                    "Polygon envanter analizi yapılamadı."
+                  );
+                }
+
+                const analysisResult =
+                  await analysisResponse.json();
+
+                const pointNames =
+                  (analysisResult.pointNames || [])
+                    .map(
+                      name =>
+                        "• " +
+                        (name || "İsimsiz")
+                    )
+                    .join("\n") || "• Yok";
+
+                const lineNames =
+                  (analysisResult.lineNames || [])
+                    .map(
+                      name =>
+                        "• " +
+                        (name || "İsimsiz")
+                    )
+                    .join("\n") || "• Yok";
+
+                const polygonNameList =
+                  (analysisResult.polygonNames || [])
+                    .filter(
+                      name =>
+                        name !== savedPolygon.name
+                    );
+
+                const polygonNames =
+                  polygonNameList
+                    .map(
+                      name =>
+                        "• " +
+                        (name || "İsimsiz")
+                    )
+                    .join("\n") || "• Yok";
+
+                const pointCount =
+                  analysisResult.pointCount || 0;
+
+                const lineCount =
+                  analysisResult.lineCount || 0;
+
+                const polygonCount =
+                  polygonNameList.length;
+
+                const totalCount =
+                  pointCount +
+                  lineCount +
+                  polygonCount;
+
+                alert(
+                  "Alan başarıyla kaydedildi.\n\n" +
+                  "Bu alanla kesişen envanterler:\n\n" +
+                  "📍 Noktalar (" +
+                  pointCount +
+                  "):\n" +
+                  pointNames +
+                  "\n\n" +
+                  "📏 Çizgiler (" +
+                  lineCount +
+                  "):\n" +
+                  lineNames +
+                  "\n\n" +
+                  "🔷 Alanlar (" +
+                  polygonCount +
+                  "):\n" +
+                  polygonNames +
+                  "\n\n" +
+                  "Toplam envanter: " +
+                  totalCount
+                );
+              }
+              catch (analysisError) {
+                console.error(
+                  "Polygon envanter analizi hatası:",
+                  analysisError
+                );
+
+                alert(
+                  "Alan kaydedildi fakat kesişen envanterler analiz edilemedi."
+                );
+              }
 
             }
             catch (error) {
@@ -887,183 +1853,182 @@ function App() {
                 error
               );
 
-            }
+              vectorSourceRef.current?.removeFeature(
+                event.feature
+              );
 
+              alert(
+                "Polygon kaydedilemedi."
+              );
+            }
           }
 
-
-          // Çizim bittikten sonra
-          // interaction'ı kaldır
+          // =========================================
+          // ÇİZİM BİTTİ
+          // =========================================
 
           if (mapRef.current) {
-
             mapRef.current.removeInteraction(
               draw
             );
-
           }
 
-
-          drawRef.current =
-            null;
-
+          drawRef.current = null;
         }
       );
 
     };
+  {/* =========================================
+    LOGIN SAYFASI
+    ========================================= */}
 
-
-  // =====================================================
-  // LOGIN SAYFASI
-  // =====================================================
-
-  if (!token) {
-
+if (!token) {
     return (
+        <div className="login-page">
 
-      <div className="login-page">
+            {/* Harita dekorasyonları */}
+            <div className="map-decoration map-decoration-left"></div>
+            <div className="map-decoration map-decoration-right"></div>
 
-        <Card className="login-card">
+            <div className="login-card">
 
-          <div className="login-logo">
+                {/* LOGO */}
+                <div className="login-logo">
+                    <img
+                        src={basarsoftLogo}
+                        alt="Başarsoft"
+                    />
+                </div>
 
-            <i className="pi pi-map"></i>
+                {/* ALT BAŞLIK */}
+                <p className="subtitle">
+                    Harita ve Envanter Yönetim Sistemi
+                </p>
 
-          </div>
+                <form onSubmit={handleLogin}>
+
+                    {/* KULLANICI ADI */}
+                    <div className="input-group">
+
+                        <label htmlFor="username">
+                            Kullanıcı Adı
+                        </label>
+
+                        <div className="login-input-wrapper">
+
+                            <span className="login-input-icon">
+                                <i className="pi pi-user"></i>
+                            </span>
+
+                            <input
+                                id="username"
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="Kullanıcı adınızı giriniz"
+                            />
+
+                        </div>
+                    </div>
 
 
-          <h1>
-            StajProjesi
-          </h1>
+                    {/* ŞİFRE */}
+                    <div className="input-group">
+
+                        <label htmlFor="password">
+                            Şifre
+                        </label>
+
+                        <div className="login-input-wrapper">
+
+                            <span className="login-input-icon">
+                                <i className="pi pi-lock"></i>
+                            </span>
+
+                            <input
+                                id="password"
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Şifrenizi giriniz"
+                            />
+
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                onClick={() =>
+                                    setShowPassword(!showPassword)
+                                }
+                            >
+                                <i
+                                    className={
+                                        showPassword
+                                            ? "pi pi-eye-slash"
+                                            : "pi pi-eye"
+                                    }
+                                ></i>
+                            </button>
+
+                        </div>
+                    </div>
 
 
-          <p className="subtitle">
-            Harita Sistemine Hoş Geldiniz
-          </p>
+                  {/* GİRİŞ BUTONU */}
+
+<Button
+  type="submit"
+  label={
+    loading
+      ? "Giriş yapılıyor..."
+      : "Giriş Yap"
+  }
+  icon={
+    loading
+      ? "pi pi-spin pi-spinner"
+      : "pi pi-sign-in"
+  }
+  loading={loading}
+  disabled={loading}
+  className="login-button"
+/>
 
 
-          <form
-            onSubmit={handleLogin}
-          >
+{/* KAYDOL BUTONU */}
 
-            {/* KULLANICI ADI */}
+<button
+  type="button"
+  className="register-button"
+>
+  <i className="pi pi-user-plus"></i>
+  <span>Kaydol</span>
+</button>
 
-            <div className="input-group">
-
-              <label htmlFor="username">
-                Kullanıcı Adı
-              </label>
-
-
-              <span className="p-input-icon-left login-input-wrapper">
-
-                <i className="pi pi-user"></i>
+</form>
 
 
-                <InputText
-                  id="username"
-                  type="text"
-                  placeholder="Kullanıcı adınızı girin"
-                  value={username}
-                  onChange={(e) =>
-                    setUsername(
-                      e.target.value
-                    )
-                  }
-                  required
-                />
-
-              </span>
+                {/* GÜVENLİ GİRİŞ */}
+                <div className="login-info">
+                    <i className="pi pi-shield"></i>
+                    <span>JWT ile güvenli giriş</span>
+                </div>
 
             </div>
-
-
-            {/* ŞİFRE */}
-
-            <div className="input-group">
-
-              <label htmlFor="password">
-                Şifre
-              </label>
-
-
-              <span className="p-input-icon-left login-input-wrapper">
-
-                <i className="pi pi-lock"></i>
-
-
-                <Password
-                  id="password"
-                  placeholder="Şifrenizi girin"
-                  value={password}
-                  onChange={(e) =>
-                    setPassword(
-                      e.target.value
-                    )
-                  }
-                  toggleMask
-                  feedback={false}
-                  required
-                />
-
-              </span>
-
-            </div>
-
-
-            {/* HATA */}
-
-            {error && (
-
-              <div className="error-message">
-
-                <i className="pi pi-exclamation-circle"></i>
-
-                <span>
-                  {error}
-                </span>
-
-              </div>
-
-            )}
-
-
-            {/* GİRİŞ BUTONU */}
-
-            <Button
-              type="submit"
-              label={
-                loading
-                  ? "Giriş yapılıyor..."
-                  : "Giriş Yap"
-              }
-              icon={
-                loading
-                  ? "pi pi-spin pi-spinner"
-                  : "pi pi-sign-in"
-              }
-              loading={loading}
-              disabled={loading}
-              className="login-button"
-            />
-
-          </form>
-
-
-          <div className="login-info">
-
-            <i className="pi pi-shield"></i>
-
-            JWT ile güvenli giriş
-
-          </div>
-
-        </Card>
-
-      </div>
-
+        </div>
     );
+}
 
+
+  // =====================================================
+  // ADMIN PANELİ
+  // =====================================================
+
+  if (showAdminPanel && isAdmin) {
+    return (
+      <AdminPanel
+        token={token}
+        onBack={() => setShowAdminPanel(false)}
+      />
+    );
   }
 
 
@@ -1118,6 +2083,9 @@ function App() {
         </div>
 
 
+
+
+
         {/* BUTONLAR */}
 
         <div className="map-buttons">
@@ -1140,13 +2108,27 @@ function App() {
             📏 Çizgi
           </button>
 
-
           <button
             onClick={() =>
               startDrawing("Polygon")
             }
           >
             🔷 Alan
+          </button>
+
+          <button
+  onClick={
+    startInventoryAnalysis
+  }
+>
+  🔍 Envanter Analizi
+</button>
+
+
+          <button
+            onClick={openInventoryList}
+          >
+            📋 Envanterleri Göster
           </button>
 
 
@@ -1158,6 +2140,15 @@ function App() {
           >
             🗑️ Tümünü Temizle
           </button>
+
+
+          {isAdmin && (
+            <button
+              onClick={() => setShowAdminPanel(true)}
+            >
+              🛡️ Admin Paneli
+            </button>
+          )}
 
 
           <button
@@ -1183,6 +2174,371 @@ function App() {
           className="map"
         >
         </div>
+
+
+        {/* =====================================================
+            DETAY POPUP
+            ===================================================== */}
+
+        {selectedFeature && popupPosition && (
+          <div
+            className="feature-popup"
+            style={{
+              left: `${Math.min(
+                popupPosition[0] + 15,
+                Math.max(20, window.innerWidth - 340)
+              )}px`,
+              top: `${Math.max(20, popupPosition[1] - 10)}px`
+            }}
+          >
+            <div className="feature-popup-header">
+              <div>
+                <strong>Objeyi Düzenle</strong>
+                <span>
+                  {getFeatureType(selectedFeature) === "Point"
+                    ? "Nokta"
+                    : getFeatureType(selectedFeature) === "LineString"
+                      ? "Çizgi"
+                      : "Alan"}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="feature-popup-close"
+                onClick={closeFeaturePopup}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="feature-popup-field">
+              <label>İsim</label>
+              <input
+                type="text"
+                value={selectedName}
+                onChange={(e) => setSelectedName(e.target.value)}
+                placeholder="Çizimin adı"
+              />
+            </div>
+
+            <div className="feature-popup-field">
+              <label>Renk</label>
+              <div className="feature-color-row">
+                <input
+                  type="color"
+                  value={selectedColor}
+                  onChange={(e) => setSelectedColor(e.target.value)}
+                />
+                <input
+                  type="text"
+                  value={selectedColor}
+                  onChange={(e) => setSelectedColor(e.target.value)}
+                  placeholder="#3388ff"
+                />
+              </div>
+            </div>
+
+            <div className="feature-popup-actions">
+              <button
+                type="button"
+                className="geometry-button"
+                onClick={
+                  isGeometryEditing
+                    ? finishGeometryEditing
+                    : startGeometryEditing
+                }
+              >
+                {isGeometryEditing
+                  ? "✓ Konum Düzenlemeyi Bitir"
+                  : "📍 Konumu Düzenle"}
+              </button>
+
+              <button
+                type="button"
+                className="update-button"
+                onClick={updateSelectedFeature}
+                disabled={savingFeature}
+              >
+                {savingFeature
+                  ? "Kaydediliyor..."
+                  : "💾 Güncelle"}
+              </button>
+
+              <button
+                type="button"
+                className="delete-feature-button"
+                onClick={deleteSelectedFeature}
+              >
+                🗑️ Sil
+              </button>
+            </div>
+          </div>
+        )}
+
+
+        {showInventoryList && (
+          <div
+            className="inventory-modal-overlay"
+            onClick={() => setShowInventoryList(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 2000,
+              background: "rgba(15, 23, 42, 0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "24px"
+            }}
+          >
+            <div
+              onClick={(event) => event.stopPropagation()}
+              style={{
+                width: "min(900px, 94vw)",
+                maxHeight: "82vh",
+                overflowY: "auto",
+                background: "#ffffff",
+                borderRadius: "18px",
+                padding: "24px",
+                boxShadow: "0 20px 60px rgba(0, 0, 0, 0.25)"
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "16px",
+                  marginBottom: "20px"
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "22px",
+                      color: "#1f2937"
+                    }}
+                  >
+                    📋 Envanterler
+                  </h2>
+
+                  <p
+                    style={{
+                      margin: "6px 0 0",
+                      color: "#6b7280",
+                      fontSize: "14px"
+                    }}
+                  >
+                    Haritada kayıtlı envanterlerin listesi
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowInventoryList(false)}
+                  style={{
+                    border: "none",
+                    background: "#f3f4f6",
+                    borderRadius: "10px",
+                    width: "38px",
+                    height: "38px",
+                    cursor: "pointer",
+                    fontSize: "20px"
+                  }}
+                  aria-label="Envanter penceresini kapat"
+                >
+                  ×
+                </button>
+              </div>
+
+              {inventoryLoading ? (
+                <div
+                  style={{
+                    padding: "40px 20px",
+                    textAlign: "center",
+                    color: "#6b7280"
+                  }}
+                >
+                  Envanterler yükleniyor...
+                </div>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(150px, 1fr))",
+                      gap: "12px",
+                      marginBottom: "22px"
+                    }}
+                  >
+                    {[
+                      {
+                        label: "Noktalar",
+                        count: inventoryData.points.length,
+                        icon: "📍"
+                      },
+                      {
+                        label: "Çizgiler",
+                        count: inventoryData.lines.length,
+                        icon: "📏"
+                      },
+                      {
+                        label: "Alanlar",
+                        count: inventoryData.polygons.length,
+                        icon: "🔷"
+                      }
+                    ].map(item => (
+                      <div
+                        key={item.label}
+                        style={{
+                          background: "#f8fafc",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "12px",
+                          padding: "14px"
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "13px",
+                            color: "#6b7280"
+                          }}
+                        >
+                          {item.icon} {item.label}
+                        </div>
+
+                        <strong
+                          style={{
+                            display: "block",
+                            marginTop: "5px",
+                            fontSize: "24px",
+                            color: "#111827"
+                          }}
+                        >
+                          {item.count}
+                        </strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(250px, 1fr))",
+                      gap: "16px"
+                    }}
+                  >
+                    {[
+                      {
+                        title: "📍 Noktalar",
+                        items: inventoryData.points
+                      },
+                      {
+                        title: "📏 Çizgiler",
+                        items: inventoryData.lines
+                      },
+                      {
+                        title: "🔷 Alanlar",
+                        items: inventoryData.polygons
+                      }
+                    ].map(section => (
+                      <div
+                        key={section.title}
+                        style={{
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "14px",
+                          overflow: "hidden"
+                        }}
+                      >
+                        <div
+                          style={{
+                            padding: "12px 14px",
+                            background: "#f8fafc",
+                            fontWeight: 600,
+                            color: "#374151"
+                          }}
+                        >
+                          {section.title}
+                        </div>
+
+                        {section.items.length === 0 ? (
+                          <div
+                            style={{
+                              padding: "18px 14px",
+                              color: "#9ca3af",
+                              fontSize: "14px"
+                            }}
+                          >
+                            Kayıt bulunmuyor.
+                          </div>
+                        ) : (
+                          <div>
+                            {section.items.map(item => (
+                              <div
+                                key={item.id}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "10px",
+                                  padding: "12px 14px",
+                                  borderTop:
+                                    "1px solid #f1f5f9"
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: "12px",
+                                    height: "12px",
+                                    borderRadius: "50%",
+                                    background: item.color,
+                                    border:
+                                      "1px solid #d1d5db",
+                                    flexShrink: 0
+                                  }}
+                                />
+
+                                <div
+                                  style={{
+                                    minWidth: 0
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      color: "#1f2937",
+                                      fontWeight: 500,
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap"
+                                    }}
+                                  >
+                                    {item.name}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      color: "#9ca3af",
+                                      fontSize: "12px",
+                                      marginTop: "2px"
+                                    }}
+                                  >
+                                    ID: {item.id}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
 
         <div className="map-info">
