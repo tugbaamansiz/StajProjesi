@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using NetTopologySuite.Geometries;
 using StajProjesi.API.Models;
 using StajProjesi.API.Services;
 using System.Security.Claims;
@@ -10,11 +11,17 @@ namespace StajProjesi.API.Controllers
     public class LineFeaturesController : ControllerBase
     {
         private readonly ILineFeatureService _lineService;
+        private readonly IPermissionService _permissionService;
+        private readonly IGeographicPermissionService _geographicPermissionService;
 
         public LineFeaturesController(
-            ILineFeatureService lineService)
+            ILineFeatureService lineService,
+            IPermissionService permissionService,
+            IGeographicPermissionService geographicPermissionService)
         {
             _lineService = lineService;
+            _permissionService = permissionService;
+            _geographicPermissionService = geographicPermissionService;
         }
 
         // =====================================================
@@ -79,12 +86,71 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
+                // =================================================
+                // LINE EKLEME YETKİSİ
+                // =================================================
+
+                var hasPermission =
+                    await _permissionService.HasPermissionAsync(
+                        userId.Value,
+                        "Line Ekleme");
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Line ekleme yetkiniz bulunmamaktadır."
+                    });
+                }
+
                 if (dto.Coordinates == null ||
                     dto.Coordinates.Count < 2)
                 {
                     return BadRequest(
                         "Çizgi için en az 2 nokta gerekli.");
                 }
+
+                // =================================================
+                // LINE GEOMETRY OLUŞTUR
+                // =================================================
+
+                var coordinates =
+                    dto.Coordinates
+                        .Select(c =>
+                            new Coordinate(
+                                c.Longitude,
+                                c.Latitude))
+                        .ToArray();
+
+                var lineGeometry =
+                    new LineString(coordinates)
+                    {
+                        SRID = 4326
+                    };
+
+                // =================================================
+                // COĞRAFİ YETKİ KONTROLÜ
+                // =================================================
+
+                var geoAllowed =
+                    await _geographicPermissionService
+                        .IsGeometryAllowedAsync(
+                            userId.Value,
+                            lineGeometry);
+
+                if (!geoAllowed)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Bu çizgiyi oluşturmak için coğrafi yetkiniz bulunmamaktadır."
+                    });
+                }
+
+                // =================================================
+                // LINE OLUŞTUR
+                // =================================================
 
                 var line =
                     await _lineService.CreateLineAsync(
@@ -129,12 +195,71 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
+                // =================================================
+                // LINE GÜNCELLEME YETKİSİ
+                // =================================================
+
+                var hasPermission =
+                    await _permissionService.HasPermissionAsync(
+                        userId.Value,
+                        "Line Güncelleme");
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Line güncelleme yetkiniz bulunmamaktadır."
+                    });
+                }
+
                 if (dto.Coordinates == null ||
                     dto.Coordinates.Count < 2)
                 {
                     return BadRequest(
                         "Çizgi için en az 2 nokta gerekli.");
                 }
+
+                // =================================================
+                // YENİ LINE GEOMETRY
+                // =================================================
+
+                var coordinates =
+                    dto.Coordinates
+                        .Select(c =>
+                            new Coordinate(
+                                c.Longitude,
+                                c.Latitude))
+                        .ToArray();
+
+                var lineGeometry =
+                    new LineString(coordinates)
+                    {
+                        SRID = 4326
+                    };
+
+                // =================================================
+                // COĞRAFİ YETKİ KONTROLÜ
+                // =================================================
+
+                var geoAllowed =
+                    await _geographicPermissionService
+                        .IsGeometryAllowedAsync(
+                            userId.Value,
+                            lineGeometry);
+
+                if (!geoAllowed)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Çizgiyi bu konuma taşımak için coğrafi yetkiniz bulunmamaktadır."
+                    });
+                }
+
+                // =================================================
+                // LINE GÜNCELLE
+                // =================================================
 
                 var updated =
                     await _lineService.UpdateLineAsync(
@@ -185,6 +310,24 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
+                // =================================================
+                // LINE SİLME YETKİSİ
+                // =================================================
+
+                var hasPermission =
+                    await _permissionService.HasPermissionAsync(
+                        userId.Value,
+                        "Line Silme");
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Line silme yetkiniz bulunmamaktadır."
+                    });
+                }
+
                 var deleted =
                     await _lineService.DeleteLineAsync(
                         id,
@@ -230,6 +373,10 @@ namespace StajProjesi.API.Controllers
             return null;
         }
     }
+
+    // =========================================================
+    // LINE DTO
+    // =========================================================
 
     public class LineDto
     {

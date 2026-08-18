@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using NetTopologySuite.Geometries;
 using StajProjesi.API.Models;
 using StajProjesi.API.Services;
 using System.Security.Claims;
@@ -10,11 +11,17 @@ namespace StajProjesi.API.Controllers
     public class PointFeaturesController : ControllerBase
     {
         private readonly IPointFeatureService _pointService;
+        private readonly IPermissionService _permissionService;
+        private readonly IGeographicPermissionService _geographicPermissionService;
 
         public PointFeaturesController(
-            IPointFeatureService pointService)
+            IPointFeatureService pointService,
+            IPermissionService permissionService,
+            IGeographicPermissionService geographicPermissionService)
         {
             _pointService = pointService;
+            _permissionService = permissionService;
+            _geographicPermissionService = geographicPermissionService;
         }
 
         // =====================================================
@@ -136,6 +143,64 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
+
+                // =================================================
+                // POINT EKLEME YETKİSİ
+                // =================================================
+
+                var hasPermission =
+                    await _permissionService.HasPermissionAsync(
+                        userId.Value,
+                        "Point Ekleme");
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Point ekleme yetkiniz bulunmamaktadır."
+                    });
+                }
+
+
+                // =================================================
+                // COĞRAFİ YETKİ KONTROLÜ
+                // =================================================
+                //
+                // Point'i Polygon olarak oluşturuyoruz.
+                // IsGeometryAllowedAsync bu geometry'nin
+                // kullanıcının yetki alanlarından birinin
+                // içinde olup olmadığını kontrol ediyor.
+                // =================================================
+
+                var pointGeometry =
+                    new Point(
+                        dto.Longitude,
+                        dto.Latitude)
+                    {
+                        SRID = 4326
+                    };
+
+                var geoAllowed =
+                    await _geographicPermissionService
+                        .IsGeometryAllowedAsync(
+                            userId.Value,
+                            pointGeometry);
+
+                if (!geoAllowed)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Bu noktayı çizmek için coğrafi yetkiniz bulunmamaktadır."
+                    });
+                }
+
+
+                // =================================================
+                // POINT OLUŞTUR
+                // =================================================
+
                 var point =
                     await _pointService.CreatePointAsync(
                         dto.Longitude,
@@ -188,6 +253,62 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
+
+                // =================================================
+                // POINT GÜNCELLEME YETKİSİ
+                // =================================================
+
+                var hasPermission =
+                    await _permissionService.HasPermissionAsync(
+                        userId.Value,
+                        "Point Güncelleme");
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Point güncelleme yetkiniz bulunmamaktadır."
+                    });
+                }
+
+
+                // =================================================
+                // COĞRAFİ YETKİ KONTROLÜ
+                // =================================================
+                //
+                // Güncellenen yeni konum da yetki alanı
+                // içerisinde olmak zorundadır.
+                // =================================================
+
+                var pointGeometry =
+                    new Point(
+                        dto.Longitude,
+                        dto.Latitude)
+                    {
+                        SRID = 4326
+                    };
+
+                var geoAllowed =
+                    await _geographicPermissionService
+                        .IsGeometryAllowedAsync(
+                            userId.Value,
+                            pointGeometry);
+
+                if (!geoAllowed)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Point'i bu konuma taşımak için coğrafi yetkiniz bulunmamaktadır."
+                    });
+                }
+
+
+                // =================================================
+                // POINT GÜNCELLE
+                // =================================================
+
                 var updated =
                     await _pointService.UpdatePointAsync(
                         id,
@@ -237,6 +358,26 @@ namespace StajProjesi.API.Controllers
 
                 if (userId == null)
                     return Unauthorized();
+
+
+                // =================================================
+                // POINT SİLME YETKİSİ
+                // =================================================
+
+                var hasPermission =
+                    await _permissionService.HasPermissionAsync(
+                        userId.Value,
+                        "Point Silme");
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Point silme yetkiniz bulunmamaktadır."
+                    });
+                }
+
 
                 var deleted =
                     await _pointService.DeletePointAsync(

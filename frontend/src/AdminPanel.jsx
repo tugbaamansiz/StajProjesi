@@ -1,7 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Map from "ol/Map";
+import View from "ol/View";
+import TileLayer from "ol/layer/Tile";
+import VectorLayer from "ol/layer/Vector";
+import OSM from "ol/source/OSM";
+import VectorSource from "ol/source/Vector";
+import Draw from "ol/interaction/Draw";
+import Feature from "ol/Feature";
+import Polygon from "ol/geom/Polygon";
+import { fromLonLat, transform } from "ol/proj";
+import { Fill, Stroke, Style } from "ol/style";
+import "ol/ol.css";
 import "./AdminPanel.css";
 
 const API_URL = "http://localhost:5166/api/Admin";
+const GEO_API_URL = "http://localhost:5166/api/GeographicPermissions";
 
 function AdminPanel({ token, onBack }) {
   const [activePage, setActivePage] = useState("users");
@@ -19,6 +32,23 @@ function AdminPanel({ token, onBack }) {
   });
 
   const [loading, setLoading] = useState(false);
+
+  // =====================================================
+  // GEOGRAPHIC PERMISSION STATE
+  // =====================================================
+
+  const [geoTargetType, setGeoTargetType] = useState("user");
+  const [geoTargetId, setGeoTargetId] = useState("");
+  const [geoPermissions, setGeoPermissions] = useState([]);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoMessage, setGeoMessage] = useState("");
+  const [geoMap, setGeoMap] = useState(null);
+  const [geoMapReady, setGeoMapReady] = useState(false);
+
+  const geoMapRef = useRef(null);
+  const geoSourceRef = useRef(null);
+  const geoDrawRef = useRef(null);
+  const geoMapInstanceRef = useRef(null);
 
   // =====================================================
   // AUTH HEADER
@@ -130,6 +160,367 @@ function AdminPanel({ token, onBack }) {
       );
 
       alert(error.message);
+    }
+  };
+
+
+  // =====================================================
+  // GEOGRAPHIC PERMISSION FUNCTIONS
+  // =====================================================
+
+  const loadGeoPermissions = async () => {
+    try {
+      setGeoLoading(true);
+
+      const response = await fetch(
+        GEO_API_URL,
+        { headers: authHeaders }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+          "Coğrafi yetkiler alınamadı."
+        );
+      }
+
+      setGeoPermissions(data || []);
+    } catch (error) {
+      console.error(
+        "Coğrafi yetkiler alınamadı:",
+        error
+      );
+      setGeoMessage(error.message);
+    } finally {
+      setGeoLoading(false);
+    }
+  };
+
+
+  // Coğrafi Yetkiler sayfasına her girildiğinde
+  // kayıtları backend'den yeniden yükle.
+  useEffect(() => {
+    if (activePage === "geographic" && token) {
+      loadGeoPermissions();
+    }
+  }, [activePage, token]);
+
+
+  const createGeoStyle = () =>
+    new Style({
+      fill: new Fill({
+        color: "rgba(255, 105, 180, 0.20)"
+      }),
+      stroke: new Stroke({
+        color: "#ff69b4",
+        width: 3
+      })
+    });
+
+
+  const renderGeoPermissions = (permissions) => {
+    const source = geoSourceRef.current;
+
+    if (!source) {
+      return;
+    }
+
+    source.clear();
+
+    permissions.forEach((permission) => {
+      const coordinates =
+        permission.coordinates || [];
+
+      if (coordinates.length < 3) {
+        return;
+      }
+
+      const ring = coordinates.map(
+        (coordinate) =>
+          fromLonLat([
+            coordinate.longitude,
+            coordinate.latitude
+          ])
+      );
+
+      const first = ring[0];
+      const last = ring[ring.length - 1];
+
+      if (
+        first[0] !== last[0] ||
+        first[1] !== last[1]
+      ) {
+        ring.push(first);
+      }
+
+      const feature = new Feature({
+        geometry: new Polygon([ring])
+      });
+
+      feature.setStyle(createGeoStyle());
+      source.addFeature(feature);
+    });
+  };
+
+
+  useEffect(() => {
+    if (
+      activePage !== "geographic" ||
+      !geoMapRef.current ||
+      geoMapInstanceRef.current
+    ) {
+      return;
+    }
+
+    const source = new VectorSource();
+
+    const vectorLayer =
+      new VectorLayer({
+        source,
+        style: createGeoStyle()
+      });
+
+    const map =
+      new Map({
+        target: geoMapRef.current,
+
+        layers: [
+          new TileLayer({
+            source: new OSM()
+          }),
+          vectorLayer
+        ],
+
+        view: new View({
+          center: fromLonLat([
+            35.5,
+            39.0
+          ]),
+          zoom: 6
+        })
+      });
+
+    geoSourceRef.current = source;
+    geoMapInstanceRef.current = map;
+    setGeoMap(map);
+    setGeoMapReady(true);
+
+    // Admin sayfası görünür olduktan sonra OpenLayers'ın
+    // gerçek container boyutunu tekrar hesaplamasını sağla.
+    requestAnimationFrame(() => {
+      map.updateSize();
+      map.getView().fit(
+        map.getView().calculateExtent(map.getSize()),
+        {
+          size: map.getSize()
+        }
+      );
+      map.getView().setCenter(
+        fromLonLat([35.5, 39.0])
+      );
+      map.getView().setZoom(6);
+    });
+
+    const resizeObserver =
+      new ResizeObserver(() => {
+        map.updateSize();
+      });
+
+    resizeObserver.observe(
+      geoMapRef.current
+    );
+
+    return () => {
+      resizeObserver.disconnect();
+
+      if (geoDrawRef.current) {
+        map.removeInteraction(
+          geoDrawRef.current
+        );
+      }
+
+      map.setTarget(undefined);
+      geoMapRef.current = null;
+      geoSourceRef.current = null;
+      geoDrawRef.current = null;
+      geoMapInstanceRef.current = null;
+      setGeoMap(null);
+      setGeoMapReady(false);
+    };
+  }, [activePage]);
+
+
+  // Coğrafi yetki kayıtları backend endpoint'i hazır olduğunda
+  // loadGeoPermissions ile yüklenecek.
+
+
+  useEffect(() => {
+    if (
+      activePage === "geographic" &&
+      geoSourceRef.current
+    ) {
+      renderGeoPermissions(
+        geoPermissions
+      );
+    }
+  }, [activePage, geoPermissions]);
+
+
+  const startGeoDrawing = () => {
+    const map =
+      geoMapInstanceRef.current;
+
+    if (!map || !geoSourceRef.current) {
+      alert(
+        "Harita henüz hazır değil. Lütfen bir saniye bekleyip tekrar deneyin."
+      );
+      return;
+    }
+
+    if (!geoTargetId) {
+      alert(
+        geoTargetType === "user"
+          ? "Önce bir kullanıcı seçin."
+          : "Önce bir rol seçin."
+      );
+      return;
+    }
+
+    if (geoDrawRef.current) {
+      map.removeInteraction(
+        geoDrawRef.current
+      );
+    }
+
+    const draw =
+      new Draw({
+        source: geoSourceRef.current,
+        type: "Polygon"
+      });
+
+    draw.on("drawend", async (event) => {
+      const geometry =
+        event.feature.getGeometry();
+
+      if (!geometry) {
+        return;
+      }
+
+      const coordinates =
+        geometry.getCoordinates()[0];
+
+      const lonLatCoordinates =
+        coordinates.map(
+          (coordinate) => {
+            const transformed =
+              transform(
+                coordinate,
+                "EPSG:3857",
+                "EPSG:4326"
+              );
+
+            return {
+              longitude: transformed[0],
+              latitude: transformed[1]
+            };
+          }
+        );
+
+      try {
+        setGeoLoading(true);
+
+        const body =
+          geoTargetType === "user"
+            ? {
+                userId:
+                  Number(geoTargetId),
+                roleId: null,
+                coordinates:
+                  lonLatCoordinates
+              }
+            : {
+                userId: null,
+                roleId:
+                  Number(geoTargetId),
+                coordinates:
+                  lonLatCoordinates
+              };
+
+        const response =
+          await fetch(
+            GEO_API_URL,
+            {
+              method: "POST",
+              headers: authHeaders,
+              body: JSON.stringify(body)
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.message ||
+            "Coğrafi yetki kaydedilemedi."
+          );
+        }
+
+        alert(
+          "Coğrafi yetki alanı başarıyla kaydedildi."
+        );
+
+        await loadGeoPermissions();
+      } catch (error) {
+        geoSourceRef.current?.removeFeature(
+          event.feature
+        );
+
+        alert(error.message);
+      } finally {
+        setGeoLoading(false);
+
+        map.removeInteraction(draw);
+        geoDrawRef.current = null;
+      }
+    });
+
+    geoDrawRef.current = draw;
+    map.addInteraction(draw);
+  };
+
+
+  const deleteGeoPermission = async (id) => {
+    const confirmed =
+      window.confirm(
+        "Bu coğrafi yetki alanını silmek istediğinize emin misiniz?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setGeoLoading(true);
+
+      await request(
+        `${GEO_API_URL}/${id}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+      alert(
+        "Coğrafi yetki alanı silindi."
+      );
+
+      await loadGeoPermissions();
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setGeoLoading(false);
     }
   };
 
@@ -621,6 +1012,20 @@ function AdminPanel({ token, onBack }) {
             <span>Yetki Listesi</span>
           </button>
 
+          <button
+            className={
+              activePage === "geographic"
+                ? "admin-nav-item active"
+                : "admin-nav-item"
+            }
+            onClick={() =>
+              setActivePage("geographic")
+            }
+          >
+            <i className="pi pi-map"></i>
+            <span>Coğrafi Yetkiler</span>
+          </button>
+
         </nav>
 
 
@@ -653,11 +1058,14 @@ function AdminPanel({ token, onBack }) {
 
               {activePage === "permissions" &&
                 "Yetki Yönetimi"}
+              {activePage === "geographic" &&
+                "Coğrafi Yetki Yönetimi"}
             </h1>
 
             <p>
-              Kullanıcı, rol ve yetki işlemlerini
-              buradan yönetebilirsiniz.
+              {activePage === "geographic"
+                ? "Kullanıcı veya role harita üzerinde coğrafi yetki alanı tanımlayabilirsiniz."
+                : "Kullanıcı, rol ve yetki işlemlerini buradan yönetebilirsiniz."}
             </p>
           </div>
 
@@ -1382,6 +1790,367 @@ function AdminPanel({ token, onBack }) {
                     </div>
 
                   )
+                )}
+
+              </div>
+
+            </div>
+
+          </section>
+
+        )}
+
+
+        {/* =================================================
+            GEOGRAPHIC PERMISSIONS PAGE
+            ================================================= */}
+
+        {activePage === "geographic" && (
+
+          <section className="admin-content">
+
+            <div
+              className="admin-card"
+              style={{
+                padding: "24px"
+              }}
+            >
+
+              <div className="admin-card-header">
+
+                <div>
+                  <h2>
+                    Coğrafi Yetki Tanımlama
+                  </h2>
+
+                  <span>
+                    Kullanıcı veya role harita
+                    üzerinde bir yetki alanı tanımlayın.
+                  </span>
+                </div>
+
+              </div>
+
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "180px 1fr auto",
+                  gap: "12px",
+                  alignItems: "end",
+                  marginBottom: "18px"
+                }}
+              >
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontWeight: 600,
+                      marginBottom: "6px"
+                    }}
+                  >
+                    Yetki Türü
+                  </label>
+
+                  <select
+                    value={geoTargetType}
+                    onChange={(e) => {
+                      setGeoTargetType(
+                        e.target.value
+                      );
+                      setGeoTargetId("");
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border:
+                        "1px solid #d1d5db"
+                    }}
+                  >
+                    <option value="user">
+                      Kullanıcı
+                    </option>
+                    <option value="role">
+                      Rol
+                    </option>
+                  </select>
+                </div>
+
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontWeight: 600,
+                      marginBottom: "6px"
+                    }}
+                  >
+                    {geoTargetType === "user"
+                      ? "Kullanıcı"
+                      : "Rol"}
+                  </label>
+
+                  <select
+                    value={geoTargetId}
+                    onChange={(e) =>
+                      setGeoTargetId(
+                        e.target.value
+                      )
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border:
+                        "1px solid #d1d5db"
+                    }}
+                  >
+
+                    <option value="">
+                      Seçiniz...
+                    </option>
+
+                    {geoTargetType === "user"
+                      ? users.map((user) => (
+                          <option
+                            key={user.id}
+                            value={user.id}
+                          >
+                            {user.username}
+                          </option>
+                        ))
+                      : roles.map((role) => (
+                          <option
+                            key={role.id}
+                            value={role.id}
+                          >
+                            {role.name}
+                          </option>
+                        ))}
+
+                  </select>
+                </div>
+
+
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={startGeoDrawing}
+                  disabled={
+                    !geoTargetId ||
+                    geoLoading ||
+                    !geoMapReady
+                  }
+                >
+                  <i className="pi pi-pencil"></i>
+                  {geoMapReady
+                    ? "Haritada Alan Çiz"
+                    : "Harita Hazırlanıyor..."}
+                </button>
+
+              </div>
+
+
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: "600px",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  border:
+                    "1px solid #d1d5db"
+                }}
+              >
+
+                <div
+                  ref={geoMapRef}
+                  style={{
+                    width: "100%",
+                    height: "100%"
+                  }}
+                />
+
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "12px",
+                    left: "12px",
+                    zIndex: 10,
+                    background:
+                      "rgba(255,255,255,0.95)",
+                    padding:
+                      "10px 14px",
+                    borderRadius: "8px",
+                    boxShadow:
+                      "0 2px 8px rgba(0,0,0,0.15)",
+                    fontSize: "13px"
+                  }}
+                >
+                  🇹🇷 Türkiye haritası
+                  <br />
+                  <strong>
+                    Alan çizmek için üstteki
+                    butona basın.
+                  </strong>
+                </div>
+
+              </div>
+
+
+              <div
+                style={{
+                  marginTop: "24px"
+                }}
+              >
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent:
+                      "space-between",
+                    alignItems: "center",
+                    marginBottom: "12px"
+                  }}
+                >
+                  <div>
+                    <h3 style={{ margin: 0 }}>
+                      Tanımlı Coğrafi Yetkiler
+                    </h3>
+
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        color: "#6b7280"
+                      }}
+                    >
+                      {geoPermissions.length}
+                      {" "}aktif alan
+                    </span>
+                  </div>
+                </div>
+
+
+                {geoLoading && (
+                  <div
+                    style={{
+                      padding: "10px",
+                      color: "#6b7280"
+                    }}
+                  >
+                    İşlem yapılıyor...
+                  </div>
+                )}
+
+
+                {geoMessage && (
+                  <div
+                    style={{
+                      padding: "10px",
+                      color: "#b91c1c",
+                      background:
+                        "#fef2f2",
+                      borderRadius: "8px",
+                      marginBottom: "10px"
+                    }}
+                  >
+                    {geoMessage}
+                  </div>
+                )}
+
+
+                {geoPermissions.length === 0 ? (
+
+                  <div
+                    style={{
+                      padding: "20px",
+                      textAlign: "center",
+                      color: "#6b7280",
+                      border:
+                        "1px dashed #d1d5db",
+                      borderRadius: "8px"
+                    }}
+                  >
+                    Henüz coğrafi yetki
+                    tanımlanmamış.
+                  </div>
+
+                ) : (
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "8px"
+                    }}
+                  >
+
+                    {geoPermissions.map(
+                      (permission) => (
+
+                        <div
+                          key={permission.id}
+                          style={{
+                            display: "flex",
+                            justifyContent:
+                              "space-between",
+                            alignItems: "center",
+                            padding:
+                              "12px 14px",
+                            border:
+                              "1px solid #e5e7eb",
+                            borderRadius: "8px"
+                          }}
+                        >
+
+                          <div>
+                            <strong>
+                              {permission.userId
+                                ? `Kullanıcı: ${
+                                    permission.username ||
+                                    `#${permission.userId}`
+                                  }`
+                                : `Rol: ${
+                                    permission.roleName ||
+                                    `#${permission.roleId}`
+                                  }`}
+                            </strong>
+
+                            <div
+                              style={{
+                                fontSize: "12px",
+                                color: "#6b7280",
+                                marginTop: "3px"
+                              }}
+                            >
+                              Yetki alanı #
+                              {permission.id}
+                            </div>
+                          </div>
+
+
+                          <button
+                            className="small-button danger"
+                            type="button"
+                            onClick={() =>
+                              deleteGeoPermission(
+                                permission.id
+                              )
+                            }
+                          >
+                            <i className="pi pi-trash"></i>
+                            Sil
+                          </button>
+
+                        </div>
+
+                      )
+                    )}
+
+                  </div>
+
                 )}
 
               </div>

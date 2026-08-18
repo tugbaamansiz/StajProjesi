@@ -1,10 +1,11 @@
+using StajProjesi.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using StajProjesi.API.Data;
-using StajProjesi.API.Services;
 using System.Security.Claims;
 using System.Text;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,8 +34,20 @@ builder.Services.AddControllers();
 // =====================================================
 
 builder.Services.AddScoped<IPointFeatureService, PointFeatureService>();
+
 builder.Services.AddScoped<ILineFeatureService, LineFeatureService>();
+
 builder.Services.AddScoped<IPolygonFeatureService, PolygonFeatureService>();
+
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+
+// =====================================================
+// GEOGRAPHIC PERMISSION SERVICE
+// =====================================================
+
+builder.Services.AddScoped<
+    IGeographicPermissionService,
+    GeographicPermissionService>();
 
 
 // =====================================================

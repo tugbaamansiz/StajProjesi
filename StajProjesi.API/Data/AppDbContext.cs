@@ -39,6 +39,8 @@ namespace StajProjesi.API.Data
 
         public DbSet<UserPermission> UserPermissions { get; set; }
 
+        public DbSet<GeographicPermission> GeographicPermissions { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -216,21 +218,83 @@ namespace StajProjesi.API.Data
 
 
             // =====================================================
-            // PERMISSION
-            // =====================================================
+// PERMISSION
+// =====================================================
 
-            modelBuilder.Entity<Permission>()
-                .Property(x => x.Name)
-                .IsRequired()
-                .HasMaxLength(150);
+modelBuilder.Entity<Permission>()
+    .Property(x => x.Name)
+    .IsRequired()
+    .HasMaxLength(150);
 
-            modelBuilder.Entity<Permission>()
-                .Property(x => x.Description)
-                .HasMaxLength(500);
+modelBuilder.Entity<Permission>()
+    .Property(x => x.Description)
+    .HasMaxLength(500);
 
-            modelBuilder.Entity<Permission>()
-                .HasIndex(x => x.Name)
-                .IsUnique();
+modelBuilder.Entity<Permission>()
+    .HasIndex(x => x.Name)
+    .IsUnique();
+
+
+// =====================================================
+// COĞRAFİ YETKİ
+// =====================================================
+
+modelBuilder.Entity<GeographicPermission>()
+    .ToTable("tbl_geographic_permission");
+
+modelBuilder.Entity<GeographicPermission>()
+    .Property(x => x.Geometry)
+    .HasColumnType("geometry(Polygon,4326)");
+
+modelBuilder.Entity<GeographicPermission>()
+    .Property(x => x.UserId)
+    .HasColumnName("user_id");
+
+modelBuilder.Entity<GeographicPermission>()
+    .Property(x => x.RoleId)
+    .HasColumnName("role_id");
+
+modelBuilder.Entity<GeographicPermission>()
+    .Property(x => x.InsertedUserId)
+    .HasColumnName("inserted_user_id");
+
+modelBuilder.Entity<GeographicPermission>()
+    .Property(x => x.InsertedDate)
+    .HasColumnName("inserted_date");
+
+modelBuilder.Entity<GeographicPermission>()
+    .Property(x => x.ModifiedDate)
+    .HasColumnName("modified_date");
+
+modelBuilder.Entity<GeographicPermission>()
+    .Property(x => x.IsDeleted)
+    .HasColumnName("is_deleted");
+
+modelBuilder.Entity<GeographicPermission>()
+    .Property(x => x.IsActive)
+    .HasColumnName("is_active");
+
+
+// =====================================================
+// COĞRAFİ YETKİ - USER
+// =====================================================
+
+modelBuilder.Entity<GeographicPermission>()
+    .HasOne<User>()
+    .WithMany()
+    .HasForeignKey(x => x.UserId)
+    .OnDelete(DeleteBehavior.Cascade);
+
+
+// =====================================================
+// COĞRAFİ YETKİ - ROLE
+// =====================================================
+
+modelBuilder.Entity<GeographicPermission>()
+    .HasOne<Role>()
+    .WithMany()
+    .HasForeignKey(x => x.RoleId)
+    .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

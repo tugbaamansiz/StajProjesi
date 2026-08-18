@@ -33,7 +33,10 @@ namespace StajProjesi.API.Controllers
         {
             try
             {
-                // Kullanıcıyı veritabanından bul
+                // =================================================
+                // KULLANICIYI BUL
+                // =================================================
+
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u =>
                         u.Username == request.Username &&
@@ -57,10 +60,62 @@ namespace StajProjesi.API.Controllers
                 // =================================================
 
                 var roles = await _context.UserRoles
-                    .Where(ur => ur.UserId == user.Id)
-                    .Where(ur => ur.Role.IsActive && !ur.Role.IsDeleted)
-                    .Select(ur => ur.Role.Name)
+                    .Where(ur =>
+                        ur.UserId == user.Id)
+                    .Where(ur =>
+                        ur.Role.IsActive &&
+                        !ur.Role.IsDeleted)
+                    .Select(ur =>
+                        ur.Role.Name)
                     .ToListAsync();
+
+
+                // =================================================
+                // KULLANICIYA DOĞRUDAN VERİLEN PERMISSION'LAR
+                // =================================================
+
+                var directPermissions =
+                    await _context.UserPermissions
+                        .Where(up =>
+                            up.UserId == user.Id)
+                        .Where(up =>
+                            up.Permission.IsActive &&
+                            !up.Permission.IsDeleted)
+                        .Select(up =>
+                            up.Permission.Name)
+                        .ToListAsync();
+
+
+                // =================================================
+                // ROLLER ÜZERİNDEN GELEN PERMISSION'LAR
+                // =================================================
+
+                var rolePermissions =
+                    await _context.UserRoles
+                        .Where(ur =>
+                            ur.UserId == user.Id)
+                        .Where(ur =>
+                            ur.Role.IsActive &&
+                            !ur.Role.IsDeleted)
+                        .SelectMany(ur =>
+                            ur.Role.RolePermissions)
+                        .Where(rp =>
+                            rp.Permission.IsActive &&
+                            !rp.Permission.IsDeleted)
+                        .Select(rp =>
+                            rp.Permission.Name)
+                        .ToListAsync();
+
+
+                // =================================================
+                // TÜM PERMISSION'LARI BİRLEŞTİR
+                // =================================================
+
+                var permissions =
+                    directPermissions
+                        .Concat(rolePermissions)
+                        .Distinct()
+                        .ToList();
 
 
                 // =================================================
@@ -69,7 +124,7 @@ namespace StajProjesi.API.Controllers
 
                 var claims = new List<Claim>
                 {
-                    // Kullanıcının gerçek ID'si
+                    // Kullanıcı ID
                     new Claim(
                         ClaimTypes.NameIdentifier,
                         user.Id.ToString()),
@@ -95,6 +150,70 @@ namespace StajProjesi.API.Controllers
 
 
                 // =================================================
+                // PERMISSION CLAIMS
+                // =================================================
+                //
+                // Türkçe karakterleri JWT içinde kullanmıyoruz.
+                // DB'deki gerçek permission isimleri korunuyor,
+                // ancak JWT'ye ASCII kodları yazılıyor.
+                //
+                // Örneğin:
+                // "Point Güncelleme" -> "POINT_UPDATE"
+                //
+                // =================================================
+
+                var permissionCodes = new List<string>();
+
+                foreach (var permission in permissions)
+                {
+                    string permissionCode = permission switch
+                    {
+                        "Point Ekleme" =>
+                            "POINT_CREATE",
+
+                        "Point Güncelleme" =>
+                            "POINT_UPDATE",
+
+                        "Point Silme" =>
+                            "POINT_DELETE",
+
+                        "Line Ekleme" =>
+                            "LINE_CREATE",
+
+                        "Line Güncelleme" =>
+                            "LINE_UPDATE",
+
+                        "Line Silme" =>
+                            "LINE_DELETE",
+
+                        "Polygon Ekleme" =>
+                            "POLYGON_CREATE",
+
+                        "Polygon Güncelleme" =>
+                            "POLYGON_UPDATE",
+
+                        "Polygon Silme" =>
+                            "POLYGON_DELETE",
+
+                        "Kullanıcı Yönetme" =>
+                            "USER_MANAGE",
+
+                        "Rol Yönetme" =>
+                            "ROLE_MANAGE",
+
+                        _ => permission
+                    };
+
+                    permissionCodes.Add(permissionCode);
+
+                    claims.Add(
+                        new Claim(
+                            "permission",
+                            permissionCode));
+                }
+
+
+                // =================================================
                 // JWT KEY
                 // =================================================
 
@@ -110,10 +229,20 @@ namespace StajProjesi.API.Controllers
                     });
                 }
 
+
+                // =================================================
+                // SECURITY KEY
+                // =================================================
+
                 var key =
                     new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(jwtKey)
                     );
+
+
+                // =================================================
+                // SIGNING CREDENTIALS
+                // =================================================
 
                 var credentials =
                     new SigningCredentials(
@@ -131,9 +260,14 @@ namespace StajProjesi.API.Controllers
                     _configuration["Jwt:Audience"],
                     claims,
                     null,
-                    DateTime.UtcNow.AddMinutes(60),
+                    DateTime.UtcNow.AddMinutes(10),
                     credentials
                 );
+
+
+                // =================================================
+                // TOKEN STRING
+                // =================================================
 
                 var tokenString =
                     new JwtSecurityTokenHandler()
@@ -147,12 +281,16 @@ namespace StajProjesi.API.Controllers
                 return Ok(new
                 {
                     token = tokenString,
-                    expiresIn = 3600,
+
+                    expiresIn = 600,
 
                     userId = user.Id,
+
                     username = user.Username,
 
-                    roles = roles
+                    roles = roles,
+
+                    permissions = permissionCodes
                 });
             }
             catch (Exception ex)
@@ -161,6 +299,7 @@ namespace StajProjesi.API.Controllers
                 {
                     message =
                         "Giriş yapılırken bir hata oluştu.",
+
                     error = ex.Message
                 });
             }

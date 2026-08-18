@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using NetTopologySuite.Geometries;
 using StajProjesi.API.Models;
 using StajProjesi.API.Services;
 using System.Security.Claims;
@@ -10,11 +11,17 @@ namespace StajProjesi.API.Controllers
     public class PolygonFeaturesController : ControllerBase
     {
         private readonly IPolygonFeatureService _polygonService;
+        private readonly IPermissionService _permissionService;
+        private readonly IGeographicPermissionService _geographicPermissionService;
 
         public PolygonFeaturesController(
-            IPolygonFeatureService polygonService)
+            IPolygonFeatureService polygonService,
+            IPermissionService permissionService,
+            IGeographicPermissionService geographicPermissionService)
         {
             _polygonService = polygonService;
+            _permissionService = permissionService;
+            _geographicPermissionService = geographicPermissionService;
         }
 
         // =====================================================
@@ -79,12 +86,108 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
+                // =====================================================
+                // POLYGON EKLEME YETKİSİ
+                // =====================================================
+
+                var hasPermission =
+                    await _permissionService.HasPermissionAsync(
+                        userId.Value,
+                        "Polygon Ekleme");
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Polygon ekleme yetkiniz bulunmamaktadır."
+                    });
+                }
+
                 if (dto.Coordinates == null ||
                     dto.Coordinates.Count < 3)
                 {
                     return BadRequest(
                         "Polygon için en az 3 nokta gerekli.");
                 }
+
+                // =====================================================
+                // POLYGON GEOMETRY OLUŞTUR
+                // =====================================================
+
+                var coordinates =
+                    dto.Coordinates
+                        .Select(c =>
+                            new Coordinate(
+                                c.Longitude,
+                                c.Latitude))
+                        .ToList();
+
+                // Polygon'un kapanması gerekir.
+                var first = coordinates.First();
+                var last = coordinates.Last();
+
+                if (!first.Equals2D(last))
+                {
+                    coordinates.Add(
+                        new Coordinate(
+                            first.X,
+                            first.Y));
+                }
+
+                var geometryFactory =
+                    NetTopologySuite.NtsGeometryServices.Instance
+                        .CreateGeometryFactory(
+                            srid: 4326);
+
+                var linearRing =
+                    geometryFactory.CreateLinearRing(
+                        coordinates.ToArray());
+
+                var polygonGeometry =
+                    geometryFactory.CreatePolygon(
+                        linearRing);
+
+                // =====================================================
+                // GEOMETRY VALIDATION
+                // =====================================================
+
+                if (!polygonGeometry.IsValid)
+                {
+                    return BadRequest(new
+                    {
+                        message =
+                            "Çizilen polygon geçerli değil."
+                    });
+                }
+
+                // =====================================================
+                // COĞRAFİ YETKİ KONTROLÜ
+                // =====================================================
+                //
+                // Kullanıcının çizdiği polygonun tamamı,
+                // tanımlı coğrafi yetki alanlarından birinin
+                // içinde olmalıdır.
+                // =====================================================
+
+                var geoAllowed =
+                    await _geographicPermissionService
+                        .IsGeometryAllowedAsync(
+                            userId.Value,
+                            polygonGeometry);
+
+                if (!geoAllowed)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Bu polygonu çizmek için coğrafi yetkiniz bulunmamaktadır."
+                    });
+                }
+
+                // =====================================================
+                // POLYGON OLUŞTUR
+                // =====================================================
 
                 var polygon =
                     await _polygonService.CreatePolygonAsync(
@@ -129,12 +232,102 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
+                // =====================================================
+                // POLYGON GÜNCELLEME YETKİSİ
+                // =====================================================
+
+                var hasPermission =
+                    await _permissionService.HasPermissionAsync(
+                        userId.Value,
+                        "Polygon Güncelleme");
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Polygon güncelleme yetkiniz bulunmamaktadır."
+                    });
+                }
+
                 if (dto.Coordinates == null ||
                     dto.Coordinates.Count < 3)
                 {
                     return BadRequest(
                         "Polygon için en az 3 nokta gerekli.");
                 }
+
+                // =====================================================
+                // YENİ POLYGON GEOMETRY
+                // =====================================================
+
+                var coordinates =
+                    dto.Coordinates
+                        .Select(c =>
+                            new Coordinate(
+                                c.Longitude,
+                                c.Latitude))
+                        .ToList();
+
+                var first = coordinates.First();
+                var last = coordinates.Last();
+
+                if (!first.Equals2D(last))
+                {
+                    coordinates.Add(
+                        new Coordinate(
+                            first.X,
+                            first.Y));
+                }
+
+                var geometryFactory =
+                    NetTopologySuite.NtsGeometryServices.Instance
+                        .CreateGeometryFactory(
+                            srid: 4326);
+
+                var linearRing =
+                    geometryFactory.CreateLinearRing(
+                        coordinates.ToArray());
+
+                var polygonGeometry =
+                    geometryFactory.CreatePolygon(
+                        linearRing);
+
+                // =====================================================
+                // GEOMETRY VALIDATION
+                // =====================================================
+
+                if (!polygonGeometry.IsValid)
+                {
+                    return BadRequest(new
+                    {
+                        message =
+                            "Güncellenen polygon geçerli değil."
+                    });
+                }
+
+                // =====================================================
+                // COĞRAFİ YETKİ KONTROLÜ
+                // =====================================================
+
+                var geoAllowed =
+                    await _geographicPermissionService
+                        .IsGeometryAllowedAsync(
+                            userId.Value,
+                            polygonGeometry);
+
+                if (!geoAllowed)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Polygonu bu alana taşımak için coğrafi yetkiniz bulunmamaktadır."
+                    });
+                }
+
+                // =====================================================
+                // POLYGON GÜNCELLE
+                // =====================================================
 
                 var updated =
                     await _polygonService.UpdatePolygonAsync(
@@ -185,6 +378,24 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
+                // =====================================================
+                // POLYGON SİLME YETKİSİ
+                // =====================================================
+
+                var hasPermission =
+                    await _permissionService.HasPermissionAsync(
+                        userId.Value,
+                        "Polygon Silme");
+
+                if (!hasPermission)
+                {
+                    return StatusCode(403, new
+                    {
+                        message =
+                            "Polygon silme yetkiniz bulunmamaktadır."
+                    });
+                }
+
                 var deleted =
                     await _polygonService.DeletePolygonAsync(
                         id,
@@ -230,6 +441,10 @@ namespace StajProjesi.API.Controllers
             return null;
         }
     }
+
+    // =========================================================
+    // POLYGON DTO
+    // =========================================================
 
     public class PolygonDto
     {

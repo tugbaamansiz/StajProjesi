@@ -107,6 +107,42 @@ function App() {
     }
   })();
 
+  // =========================
+  // PERMISSION KONTROLÜ
+  // =========================
+
+  const permissions = (() => {
+    if (!token) {
+      return [];
+    }
+
+    try {
+      const payload = JSON.parse(
+        atob(token.split(".")[1])
+      );
+
+      const permissionClaim =
+        payload["permission"];
+
+      if (!permissionClaim) {
+        return [];
+      }
+
+      if (Array.isArray(permissionClaim)) {
+        return permissionClaim;
+      }
+
+      return [permissionClaim];
+    }
+    catch {
+      return [];
+    }
+  })();
+
+  const hasPermission = (permissionName) => {
+    return permissions.includes(permissionName);
+  };
+
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
 
@@ -2091,30 +2127,37 @@ if (!token) {
         <div className="map-buttons">
 
 
-          <button
-            onClick={() =>
-              startDrawing("Point")
-            }
-          >
-            📍 Nokta
-          </button>
+          {hasPermission("POINT_CREATE") && (
+            <button
+              onClick={() =>
+                startDrawing("Point")
+              }
+            >
+              📍 Nokta
+            </button>
+          )}
 
 
-          <button
-            onClick={() =>
-              startDrawing("LineString")
-            }
-          >
-            📏 Çizgi
-          </button>
+          {hasPermission("LINE_CREATE") && (
+            <button
+              onClick={() =>
+                startDrawing("LineString")
+              }
+            >
+              📏 Çizgi
+            </button>
+          )}
 
-          <button
-            onClick={() =>
-              startDrawing("Polygon")
-            }
-          >
-            🔷 Alan
-          </button>
+
+          {hasPermission("POLYGON_CREATE") && (
+            <button
+              onClick={() =>
+                startDrawing("Polygon")
+              }
+            >
+              🔷 Alan
+            </button>
+          )}
 
           <button
   onClick={
@@ -2240,38 +2283,56 @@ if (!token) {
             </div>
 
             <div className="feature-popup-actions">
-              <button
-                type="button"
-                className="geometry-button"
-                onClick={
-                  isGeometryEditing
-                    ? finishGeometryEditing
-                    : startGeometryEditing
-                }
-              >
-                {isGeometryEditing
-                  ? "✓ Konum Düzenlemeyi Bitir"
-                  : "📍 Konumu Düzenle"}
-              </button>
+              {hasPermission(
+                getFeatureType(selectedFeature) === "Point"
+                  ? "POINT_UPDATE"
+                  : getFeatureType(selectedFeature) === "LineString"
+                    ? "LINE_UPDATE"
+                    : "POLYGON_UPDATE"
+              ) && (
+                <>
+                  <button
+                    type="button"
+                    className="geometry-button"
+                    onClick={
+                      isGeometryEditing
+                        ? finishGeometryEditing
+                        : startGeometryEditing
+                    }
+                  >
+                    {isGeometryEditing
+                      ? "✓ Konum Düzenlemeyi Bitir"
+                      : "📍 Konumu Düzenle"}
+                  </button>
 
-              <button
-                type="button"
-                className="update-button"
-                onClick={updateSelectedFeature}
-                disabled={savingFeature}
-              >
-                {savingFeature
-                  ? "Kaydediliyor..."
-                  : "💾 Güncelle"}
-              </button>
+                  <button
+                    type="button"
+                    className="update-button"
+                    onClick={updateSelectedFeature}
+                    disabled={savingFeature}
+                  >
+                    {savingFeature
+                      ? "Kaydediliyor..."
+                      : "💾 Güncelle"}
+                  </button>
+                </>
+              )}
 
-              <button
-                type="button"
-                className="delete-feature-button"
-                onClick={deleteSelectedFeature}
-              >
-                🗑️ Sil
-              </button>
+              {hasPermission(
+                getFeatureType(selectedFeature) === "Point"
+                  ? "POINT_DELETE"
+                  : getFeatureType(selectedFeature) === "LineString"
+                    ? "LINE_DELETE"
+                    : "POLYGON_DELETE"
+              ) && (
+                <button
+                  type="button"
+                  className="delete-feature-button"
+                  onClick={deleteSelectedFeature}
+                >
+                  🗑️ Sil
+                </button>
+              )}
             </div>
           </div>
         )}
