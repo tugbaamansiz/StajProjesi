@@ -3,6 +3,7 @@ using NetTopologySuite.Geometries;
 using StajProjesi.API.Models;
 using StajProjesi.API.Services;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace StajProjesi.API.Controllers
 {
@@ -13,19 +14,25 @@ namespace StajProjesi.API.Controllers
         private readonly IPointFeatureService _pointService;
         private readonly IPermissionService _permissionService;
         private readonly IGeographicPermissionService _geographicPermissionService;
+        private readonly IGeoServerService _geoServerService;
 
         public PointFeaturesController(
             IPointFeatureService pointService,
             IPermissionService permissionService,
-            IGeographicPermissionService geographicPermissionService)
+            IGeographicPermissionService geographicPermissionService,
+            IGeoServerService geoServerService)
         {
             _pointService = pointService;
             _permissionService = permissionService;
             _geographicPermissionService = geographicPermissionService;
+            _geoServerService = geoServerService;
         }
+
 
         // =====================================================
         // GET - TÜM NOKTALAR
+        // ARTIK DOĞRUDAN DATABASE DEĞİL,
+        // GEOSERVER ÜZERİNDEN GELİYOR
         // =====================================================
 
         [HttpGet]
@@ -38,27 +45,14 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
-                var points =
-                    await _pointService.GetPointsAsync(
+                var geoServerResponse =
+                    await _geoServerService.GetFeaturesAsync(
+                        "tbl_point",
                         userId.Value);
 
-                var result = points.Select(point => new
-                {
-                    id = point.Id,
-                    type = "Point",
-                    name = point.Name,
-                    color = point.Color,
-                    wkt = point.Geometry.AsText(),
-
-                    coordinates = new
-                    {
-                        longitude =
-                            point.Geometry.Coordinate.X,
-
-                        latitude =
-                            point.Geometry.Coordinate.Y
-                    }
-                });
+                var result =
+                    ParseGeoServerFeatures(
+                        geoServerResponse);
 
                 return Ok(result);
             }
@@ -67,7 +61,7 @@ namespace StajProjesi.API.Controllers
                 return StatusCode(500, new
                 {
                     message =
-                        "Noktalar getirilirken bir hata oluştu.",
+                        "Noktalar GeoServer üzerinden getirilirken bir hata oluştu.",
 
                     error = ex.Message
                 });
@@ -77,6 +71,8 @@ namespace StajProjesi.API.Controllers
 
         // =====================================================
         // GET - TEK NOKTA
+        // ARTIK DOĞRUDAN DATABASE DEĞİL,
+        // GEOSERVER ÜZERİNDEN GELİYOR
         // =====================================================
 
         [HttpGet("{id}")]
@@ -89,38 +85,33 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
-                var point =
-                    await _pointService.GetPointAsync(
+                var geoServerResponse =
+                    await _geoServerService.GetFeatureAsync(
+                        "tbl_point",
                         id,
                         userId.Value);
 
-                if (point == null)
+                if (string.IsNullOrWhiteSpace(
+                    geoServerResponse))
+                {
+                    return NotFound();
+                }
+
+                var result =
+                    ParseGeoServerFeatures(
+                        geoServerResponse);
+
+                if (result.Count == 0)
                     return NotFound();
 
-                return Ok(new
-                {
-                    id = point.Id,
-                    type = "Point",
-                    name = point.Name,
-                    color = point.Color,
-                    wkt = point.Geometry.AsText(),
-
-                    coordinates = new
-                    {
-                        longitude =
-                            point.Geometry.Coordinate.X,
-
-                        latitude =
-                            point.Geometry.Coordinate.Y
-                    }
-                });
+                return Ok(result[0]);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new
                 {
                     message =
-                        "Nokta getirilirken bir hata oluştu.",
+                        "Nokta GeoServer üzerinden getirilirken bir hata oluştu.",
 
                     error = ex.Message
                 });
@@ -165,12 +156,6 @@ namespace StajProjesi.API.Controllers
 
                 // =================================================
                 // COĞRAFİ YETKİ KONTROLÜ
-                // =================================================
-                //
-                // Point'i Polygon olarak oluşturuyoruz.
-                // IsGeometryAllowedAsync bu geometry'nin
-                // kullanıcının yetki alanlarından birinin
-                // içinde olup olmadığını kontrol ediyor.
                 // =================================================
 
                 var pointGeometry =
@@ -275,10 +260,6 @@ namespace StajProjesi.API.Controllers
 
                 // =================================================
                 // COĞRAFİ YETKİ KONTROLÜ
-                // =================================================
-                //
-                // Güncellenen yeni konum da yetki alanı
-                // içerisinde olmak zorundadır.
                 // =================================================
 
                 var pointGeometry =
@@ -403,6 +384,156 @@ namespace StajProjesi.API.Controllers
                     error = ex.Message
                 });
             }
+        }
+
+
+        // =====================================================
+        // GEOSERVER GEOJSON → FRONTEND FORMATINA ÇEVİR
+        // =====================================================
+
+        private List<object> ParseGeoServerFeatures(
+            string json)
+        {
+            var result = new List<object>();
+
+            using var document =
+                JsonDocument.Parse(json);
+
+            var root = document.RootElement;
+
+            if (!root.TryGetProperty(
+                "features",
+                out var features))
+            {
+                return result;
+            }
+
+            foreach (var feature in features.EnumerateArray())
+            {
+                if (!feature.TryGetProperty(
+                    "properties",
+                    out var properties))
+                {
+                    continue;
+                }
+
+                if (!feature.TryGetProperty(
+                    "geometry",
+                    out var geometry))
+                {
+                    continue;
+                }
+
+                if (!geometry.TryGetProperty(
+                    "coordinates",
+                    out var coordinates))
+                {
+                    continue;
+                }
+
+                // =================================================
+                // ID
+                // =================================================
+
+                int id = 0;
+
+                if (properties.TryGetProperty(
+                    "id",
+                    out var idProperty))
+                {
+                    idProperty.TryGetInt32(
+                        out id);
+                }
+                else if (feature.TryGetProperty(
+                    "id",
+                    out var featureId))
+                {
+                    var idText =
+                        featureId.GetString();
+
+                    if (!string.IsNullOrEmpty(idText))
+                    {
+                        var parts =
+                            idText.Split('.');
+
+                        int.TryParse(
+                            parts.Last(),
+                            out id);
+                    }
+                }
+
+
+                // =================================================
+                // NAME
+                // =================================================
+
+                string name = "";
+
+                if (properties.TryGetProperty(
+                    "name",
+                    out var nameProperty))
+                {
+                    name =
+                        nameProperty.GetString()
+                        ?? "";
+                }
+
+
+                // =================================================
+                // COLOR
+                // =================================================
+
+                string color = "#3388ff";
+
+                if (properties.TryGetProperty(
+                    "color",
+                    out var colorProperty))
+                {
+                    color =
+                        colorProperty.GetString()
+                        ?? "#3388ff";
+                }
+
+
+                // =================================================
+                // POINT COORDINATES
+                // =================================================
+
+                if (coordinates.GetArrayLength() < 2)
+                    continue;
+
+                var longitude =
+                    coordinates[0].GetDouble();
+
+                var latitude =
+                    coordinates[1].GetDouble();
+
+
+                // =================================================
+                // WKT
+                // =================================================
+
+                var wkt =
+                    $"POINT ({longitude} {latitude})";
+
+
+                result.Add(new
+                {
+                    id = id,
+                    type = "Point",
+                    name = name,
+                    color = color,
+                    wkt = wkt,
+
+                    coordinates = new
+                    {
+                        longitude = longitude,
+                        latitude = latitude
+                    }
+                });
+            }
+
+            return result;
         }
 
 

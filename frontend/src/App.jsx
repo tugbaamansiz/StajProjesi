@@ -83,6 +83,22 @@ function App() {
     Authorization: `Bearer ${token}`
   };
 
+  // Backend bazı kayıtlarda soft-delete alanlarını döndürüyor.
+  // Silinmiş veya pasif kayıtları frontend'de de göstermiyoruz.
+  const isVisibleFeature = (item) => {
+    if (!item) {
+      return false;
+    }
+
+    const isDeleted =
+      item.isDeleted === true || item.is_deleted === true;
+
+    const isActive =
+      item.isActive === false || item.is_active === false;
+
+    return !isDeleted && !isActive;
+  };
+
   // =========================
   // ADMIN KONTROLÜ
   // =========================
@@ -704,21 +720,27 @@ function App() {
       ]);
 
       setInventoryData({
-        points: points.map(point => ({
-          id: point.id,
-          name: point.name || "İsimsiz",
-          color: point.color || "#3388ff"
-        })),
-        lines: lines.map(line => ({
-          id: line.id,
-          name: line.name || "İsimsiz",
-          color: line.color || "#3388ff"
-        })),
-        polygons: polygons.map(polygon => ({
-          id: polygon.id,
-          name: polygon.name || "İsimsiz",
-          color: polygon.color || "#3388ff"
-        }))
+        points: points
+          .filter(isVisibleFeature)
+          .map(point => ({
+            id: point.id,
+            name: point.name || "İsimsiz",
+            color: point.color || "#3388ff"
+          })),
+        lines: lines
+          .filter(isVisibleFeature)
+          .map(line => ({
+            id: line.id,
+            name: line.name || "İsimsiz",
+            color: line.color || "#3388ff"
+          })),
+        polygons: polygons
+          .filter(isVisibleFeature)
+          .map(polygon => ({
+            id: polygon.id,
+            name: polygon.name || "İsimsiz",
+            color: polygon.color || "#3388ff"
+          }))
       });
     }
     catch (error) {
@@ -855,7 +877,9 @@ function App() {
             await response.json();
 
 
-          points.forEach(point => {
+          points
+            .filter(isVisibleFeature)
+            .forEach(point => {
 
             const feature =
               new Feature({
@@ -943,7 +967,9 @@ function App() {
             await response.json();
 
 
-          lines.forEach(line => {
+          lines
+            .filter(isVisibleFeature)
+            .forEach(line => {
 
             const coordinates =
               line.coordinates.map(
@@ -1030,7 +1056,9 @@ function App() {
             await response.json();
 
 
-          polygons.forEach(polygon => {
+          polygons
+            .filter(isVisibleFeature)
+            .forEach(polygon => {
 
             const coordinates =
               polygon.coordinates.map(

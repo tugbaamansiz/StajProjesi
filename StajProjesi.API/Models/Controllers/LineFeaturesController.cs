@@ -3,6 +3,7 @@ using NetTopologySuite.Geometries;
 using StajProjesi.API.Models;
 using StajProjesi.API.Services;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace StajProjesi.API.Controllers
 {
@@ -13,19 +14,23 @@ namespace StajProjesi.API.Controllers
         private readonly ILineFeatureService _lineService;
         private readonly IPermissionService _permissionService;
         private readonly IGeographicPermissionService _geographicPermissionService;
+        private readonly IGeoServerService _geoServerService;
 
         public LineFeaturesController(
             ILineFeatureService lineService,
             IPermissionService permissionService,
-            IGeographicPermissionService geographicPermissionService)
+            IGeographicPermissionService geographicPermissionService,
+            IGeoServerService geoServerService)
         {
             _lineService = lineService;
             _permissionService = permissionService;
             _geographicPermissionService = geographicPermissionService;
+            _geoServerService = geoServerService;
         }
 
         // =====================================================
         // GET - TÜM ÇİZGİLER
+        // GEOSERVER WFS ÜZERİNDEN GETİRİLİR
         // =====================================================
 
         [HttpGet]
@@ -38,25 +43,14 @@ namespace StajProjesi.API.Controllers
                 if (userId == null)
                     return Unauthorized();
 
-                var lines =
-                    await _lineService.GetLinesAsync(
+                var geoServerResponse =
+                    await _geoServerService.GetFeaturesAsync(
+                        "tbl_line",
                         userId.Value);
 
-                var result = lines.Select(line => new
-                {
-                    id = line.Id,
-                    type = "LineString",
-                    name = line.Name,
-                    color = line.Color,
-                    wkt = line.Geometry.AsText(),
-
-                    coordinates =
-                        line.Geometry.Coordinates.Select(c => new
-                        {
-                            longitude = c.X,
-                            latitude = c.Y
-                        }).ToList()
-                });
+                var result =
+                    ParseGeoServerFeatures(
+                        geoServerResponse);
 
                 return Ok(result);
             }
@@ -65,7 +59,54 @@ namespace StajProjesi.API.Controllers
                 return StatusCode(500, new
                 {
                     message =
-                        "Çizgiler getirilirken bir hata oluştu.",
+                        "Çizgiler GeoServer üzerinden getirilirken bir hata oluştu.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        // =====================================================
+        // GET - TEK ÇİZGİ
+        // GEOSERVER WFS ÜZERİNDEN GETİRİLİR
+        // =====================================================
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetLine(int id)
+        {
+            try
+            {
+                var userId = GetUserId();
+
+                if (userId == null)
+                    return Unauthorized();
+
+                var geoServerResponse =
+                    await _geoServerService.GetFeatureAsync(
+                        "tbl_line",
+                        id,
+                        userId.Value);
+
+                if (string.IsNullOrWhiteSpace(
+                    geoServerResponse))
+                {
+                    return NotFound();
+                }
+
+                var result =
+                    ParseGeoServerFeatures(
+                        geoServerResponse);
+
+                if (result.Count == 0)
+                    return NotFound();
+
+                return Ok(result[0]);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message =
+                        "Çizgi GeoServer üzerinden getirilirken bir hata oluştu.",
                     error = ex.Message
                 });
             }
@@ -354,6 +395,169 @@ namespace StajProjesi.API.Controllers
         }
 
         // =====================================================
+        // GEOSERVER GEOJSON → FRONTEND FORMATINA ÇEVİR
+        // =====================================================
+
+        private List<object> ParseGeoServerFeatures(
+            string json)
+        {
+            var result = new List<object>();
+
+            using var document =
+                JsonDocument.Parse(json);
+
+            var root = document.RootElement;
+
+            if (!root.TryGetProperty(
+                "features",
+                out var features))
+            {
+                return result;
+            }
+
+            foreach (var feature in features.EnumerateArray())
+            {
+                if (!feature.TryGetProperty(
+                    "properties",
+                    out var properties))
+                {
+                    continue;
+                }
+
+                if (!feature.TryGetProperty(
+                    "geometry",
+                    out var geometry))
+                {
+                    continue;
+                }
+
+                if (!geometry.TryGetProperty(
+                    "coordinates",
+                    out var coordinates))
+                {
+                    continue;
+                }
+
+                // =================================================
+                // ID
+                // =================================================
+
+                int id = 0;
+
+                if (properties.TryGetProperty(
+                    "id",
+                    out var idProperty))
+                {
+                    idProperty.TryGetInt32(
+                        out id);
+                }
+                else if (feature.TryGetProperty(
+                    "id",
+                    out var featureId))
+                {
+                    var idText =
+                        featureId.GetString();
+
+                    if (!string.IsNullOrEmpty(idText))
+                    {
+                        var parts =
+                            idText.Split('.');
+
+                        int.TryParse(
+                            parts.Last(),
+                            out id);
+                    }
+                }
+
+                // =================================================
+                // NAME
+                // =================================================
+
+                string name = "";
+
+                if (properties.TryGetProperty(
+                    "name",
+                    out var nameProperty))
+                {
+                    name =
+                        nameProperty.GetString()
+                        ?? "";
+                }
+
+                // =================================================
+                // COLOR
+                // =================================================
+
+                string color = "#3388ff";
+
+                if (properties.TryGetProperty(
+                    "color",
+                    out var colorProperty))
+                {
+                    color =
+                        colorProperty.GetString()
+                        ?? "#3388ff";
+                }
+
+                // =================================================
+                // LINE COORDINATES
+                // =================================================
+
+                var coordinateList =
+                    new List<object>();
+
+                foreach (var coordinate
+                    in coordinates.EnumerateArray())
+                {
+                    if (coordinate.GetArrayLength() < 2)
+                        continue;
+
+                    coordinateList.Add(new
+                    {
+                        longitude =
+                            coordinate[0].GetDouble(),
+
+                        latitude =
+                            coordinate[1].GetDouble()
+                    });
+                }
+
+                if (coordinateList.Count < 2)
+                    continue;
+
+                // =================================================
+                // WKT
+                // =================================================
+
+                var wktCoordinates =
+                    string.Join(
+                        ", ",
+                        coordinates.EnumerateArray()
+                            .Select(c =>
+                                $"{c[0].GetDouble()} {c[1].GetDouble()}"));
+
+                var wkt =
+                    $"LINESTRING ({wktCoordinates})";
+
+                // =================================================
+                // RESULT
+                // =================================================
+
+                result.Add(new
+                {
+                    id = id,
+                    type = "LineString",
+                    name = name,
+                    color = color,
+                    wkt = wkt,
+                    coordinates = coordinateList
+                });
+            }
+
+            return result;
+        }
+
+        // =====================================================
         // JWT'DEN USER ID AL
         // =====================================================
 
@@ -364,8 +568,8 @@ namespace StajProjesi.API.Controllers
                     ClaimTypes.NameIdentifier);
 
             if (int.TryParse(
-                    userIdValue,
-                    out var userId))
+                userIdValue,
+                out var userId))
             {
                 return userId;
             }
