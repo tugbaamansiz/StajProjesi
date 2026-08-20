@@ -731,6 +731,43 @@ body {
 
 
 /* =========================================================
+   HEATMAP BUTONU
+   ========================================================= */
+
+.map-buttons .heatmap-button {
+    background: #ffffff;
+
+    color: #7c3aed;
+
+    border-color: #ddd6fe;
+}
+
+.map-buttons .heatmap-button:hover {
+    background: #f5f3ff;
+
+    color: #6d28d9;
+
+    border-color: #c4b5fd;
+}
+
+.map-buttons .heatmap-button.active {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+
+    color: #ffffff;
+
+    border-color: #7c3aed;
+
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.32);
+}
+
+.map-buttons .heatmap-button.active:hover {
+    background: linear-gradient(135deg, #6d28d9, #9333ea);
+
+    color: #ffffff;
+}
+
+
+/* =========================================================
    ÇIKIŞ BUTONU
    ========================================================= */
 
@@ -1485,4 +1522,260 @@ body {
     .feature-popup {
         width: 290px;
     }
+}
+
+/* =====================================================
+   ÖLÇÜM SONUCU
+   ===================================================== */
+
+.measurement-result {
+  position: absolute;
+  left: 50%;
+  bottom: 25px;
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  background: white;
+  padding: 12px 16px;
+
+  border-radius: 12px;
+
+  box-shadow:
+    0 8px 25px rgba(0, 0, 0, 0.18);
+
+  z-index: 1500;
+
+  font-size: 15px;
+}
+
+.measurement-result span {
+  font-size: 20px;
+}
+
+.measurement-result strong {
+  color: #1f2937;
+}
+
+.measurement-result button {
+  border: none;
+  background: #f3f4f6;
+
+  width: 28px;
+  height: 28px;
+
+  border-radius: 8px;
+
+  cursor: pointer;
+
+  font-size: 18px;
+
+  color: #374151;
+}
+
+.measurement-result button:hover {
+  background: #e5e7eb;
+}
+
+/* =====================================================
+   ÜST MENÜ - KOMPAKT TASARIM
+   ===================================================== */
+
+.map-header {
+    gap: 10px !important;
+    padding: 10px 14px !important;
+    min-height: 72px !important;
+}
+
+.map-header h1 {
+    font-size: 21px !important;
+}
+
+.map-header > div:first-child {
+    gap: 8px !important;
+}
+
+.map-header > div:first-child span {
+    font-size: 12px !important;
+}
+
+.session-timer {
+    height: 34px !important;
+    padding: 0 9px !important;
+    font-size: 11px !important;
+}
+
+.map-buttons {
+    gap: 4px !important;
+}
+
+.map-buttons button {
+    height: 34px !important;
+    padding: 0 8px !important;
+    gap: 4px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+}
+
+.map-buttons button i {
+    font-size: 11px !important;
+}
+
+/* Özellikle uzun yazılı butonlar */
+.map-buttons .inventory-button,
+.map-buttons .show-inventory-button {
+    padding-left: 7px !important;
+    padding-right: 7px !important;
+}
+
+/* Çıkış butonu */
+.map-buttons .logout-button {
+    padding-left: 9px !important;
+    padding-right: 9px !important;
+}
+
+
+/* =====================================================
+   1500 PX ALTI
+   ===================================================== */
+
+@media (max-width: 1500px) {
+
+    .map-header {
+        gap: 7px !important;
+        padding: 9px 10px !important;
+    }
+
+    .map-header h1 {
+        font-size: 19px !important;
+    }
+
+    .map-header > div:first-child {
+        gap: 6px !important;
+    }
+
+    .session-timer {
+        padding: 0 7px !important;
+        font-size: 10px !important;
+    }
+
+    .map-buttons {
+        gap: 3px !important;
+    }
+
+    .map-buttons button {
+        height: 32px !important;
+        padding: 0 6px !important;
+        font-size: 10px !important;
+        gap: 3px !important;
+    }
+
+    .map-buttons button i {
+        font-size: 10px !important;
+    }
+}
+
+/* =====================================================
+   FEATURE BİLGİ PANELİ
+   ===================================================== */
+
+.feature-info-panel {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    width: 280px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.20);
+    border: 1px solid #e2e8f0;
+    z-index: 1500;
+    overflow: hidden;
+}
+
+.feature-info-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 15px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.feature-info-header > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.feature-info-header strong {
+    color: #1e293b;
+    font-size: 16px;
+}
+
+.feature-info-header span {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.feature-info-close {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 8px;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.feature-info-close:hover {
+    background: #cbd5e1;
+}
+
+.feature-info-content {
+    padding: 14px 16px;
+}
+
+.feature-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 11px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.feature-info-row:last-child {
+    border-bottom: none;
+}
+
+.feature-info-row span:first-child {
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.feature-info-row strong {
+    color: #1e293b;
+    font-size: 13px;
+    text-align: right;
+    word-break: break-word;
+}
+
+.feature-info-color {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.feature-info-color-box {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1px solid #cbd5e1;
+    display: inline-block;
 }

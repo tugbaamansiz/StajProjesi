@@ -28,6 +28,7 @@ namespace StajProjesi.API.Controllers
             _geoServerService = geoServerService;
         }
 
+
         // =====================================================
         // GET - TÜM ÇİZGİLER
         // GEOSERVER WFS ÜZERİNDEN GETİRİLİR
@@ -45,7 +46,7 @@ namespace StajProjesi.API.Controllers
 
                 var geoServerResponse =
                     await _geoServerService.GetFeaturesAsync(
-                        "tbl_line",
+                        "line_view",
                         userId.Value);
 
                 var result =
@@ -65,6 +66,7 @@ namespace StajProjesi.API.Controllers
             }
         }
 
+
         // =====================================================
         // GET - TEK ÇİZGİ
         // GEOSERVER WFS ÜZERİNDEN GETİRİLİR
@@ -82,7 +84,7 @@ namespace StajProjesi.API.Controllers
 
                 var geoServerResponse =
                     await _geoServerService.GetFeatureAsync(
-                        "tbl_line",
+                        "line_view",
                         id,
                         userId.Value);
 
@@ -112,6 +114,7 @@ namespace StajProjesi.API.Controllers
             }
         }
 
+
         // =====================================================
         // POST - ÇİZGİ OLUŞTUR
         // =====================================================
@@ -126,6 +129,7 @@ namespace StajProjesi.API.Controllers
 
                 if (userId == null)
                     return Unauthorized();
+
 
                 // =================================================
                 // LINE EKLEME YETKİSİ
@@ -145,12 +149,14 @@ namespace StajProjesi.API.Controllers
                     });
                 }
 
+
                 if (dto.Coordinates == null ||
                     dto.Coordinates.Count < 2)
                 {
                     return BadRequest(
                         "Çizgi için en az 2 nokta gerekli.");
                 }
+
 
                 // =================================================
                 // LINE GEOMETRY OLUŞTUR
@@ -170,6 +176,7 @@ namespace StajProjesi.API.Controllers
                         SRID = 4326
                     };
 
+
                 // =================================================
                 // COĞRAFİ YETKİ KONTROLÜ
                 // =================================================
@@ -188,6 +195,7 @@ namespace StajProjesi.API.Controllers
                             "Bu çizgiyi oluşturmak için coğrafi yetkiniz bulunmamaktadır."
                     });
                 }
+
 
                 // =================================================
                 // LINE OLUŞTUR
@@ -220,6 +228,7 @@ namespace StajProjesi.API.Controllers
             }
         }
 
+
         // =====================================================
         // PUT - ÇİZGİ GÜNCELLE
         // =====================================================
@@ -235,6 +244,7 @@ namespace StajProjesi.API.Controllers
 
                 if (userId == null)
                     return Unauthorized();
+
 
                 // =================================================
                 // LINE GÜNCELLEME YETKİSİ
@@ -254,12 +264,14 @@ namespace StajProjesi.API.Controllers
                     });
                 }
 
+
                 if (dto.Coordinates == null ||
                     dto.Coordinates.Count < 2)
                 {
                     return BadRequest(
                         "Çizgi için en az 2 nokta gerekli.");
                 }
+
 
                 // =================================================
                 // YENİ LINE GEOMETRY
@@ -279,6 +291,7 @@ namespace StajProjesi.API.Controllers
                         SRID = 4326
                     };
 
+
                 // =================================================
                 // COĞRAFİ YETKİ KONTROLÜ
                 // =================================================
@@ -297,6 +310,7 @@ namespace StajProjesi.API.Controllers
                             "Çizgiyi bu konuma taşımak için coğrafi yetkiniz bulunmamaktadır."
                     });
                 }
+
 
                 // =================================================
                 // LINE GÜNCELLE
@@ -336,6 +350,7 @@ namespace StajProjesi.API.Controllers
             }
         }
 
+
         // =====================================================
         // DELETE - SOFT DELETE
         // =====================================================
@@ -350,6 +365,7 @@ namespace StajProjesi.API.Controllers
 
                 if (userId == null)
                     return Unauthorized();
+
 
                 // =================================================
                 // LINE SİLME YETKİSİ
@@ -368,6 +384,7 @@ namespace StajProjesi.API.Controllers
                             "Line silme yetkiniz bulunmamaktadır."
                     });
                 }
+
 
                 var deleted =
                     await _lineService.DeleteLineAsync(
@@ -393,6 +410,7 @@ namespace StajProjesi.API.Controllers
                 });
             }
         }
+
 
         // =====================================================
         // GEOSERVER GEOJSON → FRONTEND FORMATINA ÇEVİR
@@ -438,6 +456,7 @@ namespace StajProjesi.API.Controllers
                     continue;
                 }
 
+
                 // =================================================
                 // ID
                 // =================================================
@@ -469,13 +488,15 @@ namespace StajProjesi.API.Controllers
                     }
                 }
 
+
                 // =================================================
                 // NAME
                 // =================================================
 
                 string name = "";
 
-                if (properties.TryGetProperty(
+                if (TryGetPropertyIgnoreCase(
+                    properties,
                     "name",
                     out var nameProperty))
                 {
@@ -484,13 +505,15 @@ namespace StajProjesi.API.Controllers
                         ?? "";
                 }
 
+
                 // =================================================
                 // COLOR
                 // =================================================
 
                 string color = "#3388ff";
 
-                if (properties.TryGetProperty(
+                if (TryGetPropertyIgnoreCase(
+                    properties,
                     "color",
                     out var colorProperty))
                 {
@@ -498,6 +521,7 @@ namespace StajProjesi.API.Controllers
                         colorProperty.GetString()
                         ?? "#3388ff";
                 }
+
 
                 // =================================================
                 // LINE COORDINATES
@@ -525,6 +549,7 @@ namespace StajProjesi.API.Controllers
                 if (coordinateList.Count < 2)
                     continue;
 
+
                 // =================================================
                 // WKT
                 // =================================================
@@ -538,6 +563,7 @@ namespace StajProjesi.API.Controllers
 
                 var wkt =
                     $"LINESTRING ({wktCoordinates})";
+
 
                 // =================================================
                 // RESULT
@@ -556,6 +582,29 @@ namespace StajProjesi.API.Controllers
 
             return result;
         }
+
+
+        private bool TryGetPropertyIgnoreCase(
+            JsonElement element,
+            string propertyName,
+            out JsonElement value)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(
+                    property.Name,
+                    propertyName,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+
+            value = default;
+            return false;
+        }
+
 
         // =====================================================
         // JWT'DEN USER ID AL
@@ -577,6 +626,7 @@ namespace StajProjesi.API.Controllers
             return null;
         }
     }
+
 
     // =========================================================
     // LINE DTO

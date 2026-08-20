@@ -15,6 +15,8 @@ import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
 import VectorLayer from "ol/layer/Vector";
 
+import TileWMS from "ol/source/TileWMS";
+
 import OSM from "ol/source/OSM";
 import VectorSource from "ol/source/Vector";
 
@@ -41,6 +43,12 @@ import "./App.css";
 import basarsoftLogo from "./assets/basarsoft-logo.png";
 import AdminPanel from "./AdminPanel";
 
+import {
+  GEOSERVER_WMS_URL,
+  GEOSERVER_LAYERS,
+  getUserIdFromToken
+} from "./services/geoServerMap";
+
 
 function App() {
   const [showPassword, setShowPassword] = useState(false);
@@ -62,16 +70,25 @@ function App() {
 
   const [selectedFeature, setSelectedFeature] = useState(null);
   const [selectedName, setSelectedName] = useState("");
+  const [showFeatureInfo, setShowFeatureInfo] = useState(false);
   const [selectedColor, setSelectedColor] = useState("#3388ff");
   const [popupPosition, setPopupPosition] = useState(null);
   const [isGeometryEditing, setIsGeometryEditing] = useState(false);
   const [savingFeature, setSavingFeature] = useState(false);
 
   // =========================
+// ÖLÇÜM ARACI
+// =========================
+const [measurementMode, setMeasurementMode] = useState(null);
+const [measurementResult, setMeasurementResult] = useState(null);
+const measureDrawRef = useRef(null);
+
+  // =========================
   // ENVANTERLERİ GÖSTER
   // =========================
 
   const [showInventoryList, setShowInventoryList] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventoryData, setInventoryData] = useState({
     points: [],
@@ -172,6 +189,7 @@ function App() {
   const vectorSourceRef = useRef(null);
   const drawRef = useRef(null);
   const modifyRef = useRef(null);
+  const heatmapLayerRef = useRef(null);
 
 
   // =========================
@@ -397,15 +415,16 @@ function App() {
   // =====================================================
 
   const closeFeaturePopup = () => {
-    if (modifyRef.current && mapRef.current) {
-      mapRef.current.removeInteraction(modifyRef.current);
-    }
+  if (modifyRef.current && mapRef.current) {
+    mapRef.current.removeInteraction(modifyRef.current);
+  }
 
-    modifyRef.current = null;
-    setIsGeometryEditing(false);
-    setSelectedFeature(null);
-    setPopupPosition(null);
-  };
+  modifyRef.current = null;
+  setIsGeometryEditing(false);
+  setSelectedFeature(null);
+  setPopupPosition(null);
+  setShowFeatureInfo(false);
+};
 
   const getFeatureType = (feature) => {
     return feature?.get("featureType") || "";
@@ -802,6 +821,70 @@ function App() {
 
 
     // =========================
+    // GEOSERVER HEATMAP WMS
+    // =========================
+
+    const userId =
+      getUserIdFromToken(token);
+
+    let heatmapLayer = null;
+
+    if (userId !== null) {
+      heatmapLayer =
+        new TileLayer({
+
+          source: new TileWMS({
+
+            url:
+              GEOSERVER_WMS_URL,
+
+            params: {
+
+              SERVICE:
+                "WMS",
+
+              VERSION:
+                "1.1.1",
+
+              REQUEST:
+                "GetMap",
+
+              LAYERS:
+                GEOSERVER_LAYERS.point,
+
+              STYLES:
+                "heatmap_style",
+
+              FORMAT:
+                "image/png",
+
+              TRANSPARENT:
+                true,
+
+              TILED:
+                true,
+
+              CQL_FILTER:
+                `inserted_user_id = ${userId}`
+
+            },
+
+            serverType:
+              "geoserver"
+
+          }),
+
+          visible:
+            showHeatmap
+
+        });
+
+      heatmapLayerRef.current =
+        heatmapLayer;
+    }
+
+
+    // =========================
     // MAP
     // =========================
 
@@ -821,6 +904,10 @@ function App() {
           }),
 
           vectorLayer,
+
+          ...(heatmapLayer
+            ? [heatmapLayer]
+            : []),
 
         ],
 
@@ -1170,6 +1257,7 @@ function App() {
       setSelectedColor(color);
       setPopupPosition(event.pixel);
       setIsGeometryEditing(false);
+      setShowFeatureInfo(true);
     };
 
     map.on("singleclick", handleMapClick);
@@ -1193,10 +1281,28 @@ function App() {
       mapRef.current = null;
 
       vectorSourceRef.current = null;
+      heatmapLayerRef.current = null;
 
     };
 
   }, [token, showAdminPanel]);
+
+
+  // =========================
+  // HEATMAP GÖRÜNÜRLÜĞÜ
+  // =========================
+
+  useEffect(() => {
+
+    if (!heatmapLayerRef.current) {
+      return;
+    }
+
+    heatmapLayerRef.current.setVisible(
+      showHeatmap
+    );
+
+  }, [showHeatmap]);
 
 
   // =====================================================
@@ -1347,6 +1453,177 @@ const startInventoryAnalysis = () => {
         null;
     }
   );
+};
+
+// =====================================================
+// ÖLÇÜM ARACI
+// =====================================================
+
+const stopMeasurement = () => {
+  if (measureDrawRef.current && mapRef.current) {
+    mapRef.current.removeInteraction(
+      measureDrawRef.current
+    );
+  }
+
+  measureDrawRef.current = null;
+  setMeasurementMode(null);
+};
+
+const startMeasurement = (type) => {
+
+  // Admin ölçüm araçlarını her zaman kullanabilir.
+  // Diğer kullanıcılar ilgili permission'a sahip olmalı.
+  if (
+    !isAdmin &&
+    type === "distance" &&
+    !hasPermission("DISTANCE_MEASURE")
+  ) {
+    alert("Mesafe ölçme yetkiniz bulunmuyor.");
+    return;
+  }
+
+  if (
+    !isAdmin &&
+    type === "area" &&
+    !hasPermission("AREA_MEASURE")
+  ) {
+    alert("Alan ölçme yetkiniz bulunmuyor.");
+    return;
+  }
+
+  if (!mapRef.current) {
+    return;
+  }
+  
+
+  // Normal çizim varsa kapat
+  if (drawRef.current) {
+    mapRef.current.removeInteraction(
+      drawRef.current
+    );
+
+    drawRef.current = null;
+  }
+
+  // Önceki ölçümü kapat
+  stopMeasurement();
+
+  setMeasurementMode(type);
+  setMeasurementResult(null);
+
+  const draw = new Draw({
+    source: new VectorSource(),
+    type: type === "distance"
+      ? "LineString"
+      : "Polygon"
+  });
+
+  measureDrawRef.current = draw;
+
+  mapRef.current.addInteraction(draw);
+
+  draw.on("drawend", (event) => {
+    const geometry =
+      event.feature.getGeometry();
+
+    let result = "";
+
+    if (type === "distance") {
+      const coordinates =
+        geometry.getCoordinates();
+
+      let totalDistance = 0;
+
+      for (let i = 1; i < coordinates.length; i++) {
+        const start = toLonLat(
+          coordinates[i - 1]
+        );
+
+        const end = toLonLat(
+          coordinates[i]
+        );
+
+        const R = 6371008.8;
+
+        const lat1 =
+          start[1] * Math.PI / 180;
+
+        const lat2 =
+          end[1] * Math.PI / 180;
+
+        const deltaLat =
+          (end[1] - start[1]) *
+          Math.PI / 180;
+
+        const deltaLon =
+          (end[0] - start[0]) *
+          Math.PI / 180;
+
+        const a =
+          Math.sin(deltaLat / 2) ** 2 +
+          Math.cos(lat1) *
+          Math.cos(lat2) *
+          Math.sin(deltaLon / 2) ** 2;
+
+        const c =
+          2 *
+          Math.atan2(
+            Math.sqrt(a),
+            Math.sqrt(1 - a)
+          );
+
+        totalDistance += R * c;
+      }
+
+      if (totalDistance >= 1000) {
+        result =
+          `Mesafe: ${(totalDistance / 1000).toFixed(2)} km`;
+      } else {
+        result =
+          `Mesafe: ${totalDistance.toFixed(2)} m`;
+      }
+    }
+
+    if (type === "area") {
+      const coordinates =
+        geometry.getCoordinates()[0];
+
+      let area = 0;
+
+      for (
+        let i = 0;
+        i < coordinates.length - 1;
+        i++
+      ) {
+        const p1 =
+          toLonLat(coordinates[i]);
+
+        const p2 =
+          toLonLat(coordinates[i + 1]);
+
+        area +=
+          p1[0] * p2[1] -
+          p2[0] * p1[1];
+      }
+
+      area =
+        Math.abs(area) *
+        12364.0;
+
+      result =
+        `Alan: ${area.toFixed(2)} km²`;
+    }
+
+    setMeasurementResult(result);
+
+    if (mapRef.current) {
+      mapRef.current.removeInteraction(draw);
+    }
+
+    measureDrawRef.current = null;
+    setMeasurementMode(null);
+  });
 };
 
 
@@ -2195,11 +2472,54 @@ if (!token) {
   🔍 Envanter Analizi
 </button>
 
+{(isAdmin || hasPermission("DISTANCE_MEASURE")) && (
+  <button
+    onClick={() => startMeasurement("distance")}
+  >
+    📏 Mesafe Ölç
+  </button>
+)}
+
+{(isAdmin || hasPermission("AREA_MEASURE")) && (
+  <button
+    onClick={() => startMeasurement("area")}
+  >
+    📐 Alan Ölç
+  </button>
+)}
+
+{measurementMode && (
+  <button
+    onClick={stopMeasurement}
+    className="clear-button"
+  >
+    ✖️ Ölçümü İptal Et
+  </button>
+)}
+
 
           <button
             onClick={openInventoryList}
           >
             📋 Envanterleri Göster
+          </button>
+
+
+          <button
+            onClick={() =>
+              setShowHeatmap(
+                current => !current
+              )
+            }
+            className={
+              showHeatmap
+                ? "heatmap-button active"
+                : "heatmap-button"
+            }
+          >
+            {showHeatmap
+              ? "🔥 Heatmap Kapat"
+              : "🔥 Heatmap"}
           </button>
 
 
@@ -2247,6 +2567,84 @@ if (!token) {
         </div>
 
 
+{/* =====================================================
+    FEATURE BİLGİ PANELİ
+    ===================================================== */}
+
+{showFeatureInfo && selectedFeature && (
+  <div className="feature-info-panel">
+
+    <div className="feature-info-header">
+      <div>
+        <strong>Feature Bilgileri</strong>
+
+        <span>
+          {getFeatureType(selectedFeature) === "Point"
+            ? "📍 Nokta"
+            : getFeatureType(selectedFeature) === "LineString"
+              ? "📏 Çizgi"
+              : "🔷 Alan"}
+        </span>
+      </div>
+
+      <button
+        type="button"
+        className="feature-info-close"
+        onClick={() => setShowFeatureInfo(false)}
+      >
+        ×
+      </button>
+    </div>
+
+    <div className="feature-info-content">
+
+      <div className="feature-info-row">
+        <span>ID</span>
+        <strong>
+          {selectedFeature.get("featureId") || "-"}
+        </strong>
+      </div>
+
+      <div className="feature-info-row">
+        <span>Tür</span>
+        <strong>
+          {getFeatureType(selectedFeature) === "Point"
+            ? "Nokta"
+            : getFeatureType(selectedFeature) === "LineString"
+              ? "Çizgi"
+              : "Alan"}
+        </strong>
+      </div>
+
+      <div className="feature-info-row">
+        <span>İsim</span>
+        <strong>
+          {selectedFeature.get("name") || "İsimsiz"}
+        </strong>
+      </div>
+
+      <div className="feature-info-row">
+        <span>Renk</span>
+
+        <div className="feature-info-color">
+          <span
+            className="feature-info-color-box"
+            style={{
+              background:
+                selectedFeature.get("color") || "#3388ff"
+            }}
+          />
+
+          <strong>
+            {selectedFeature.get("color") || "#3388ff"}
+          </strong>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+)}
         {/* =====================================================
             DETAY POPUP
             ===================================================== */}
@@ -2629,6 +3027,20 @@ if (!token) {
           </div>
         )}
 
+        {measurementResult && (
+  <div className="measurement-result">
+    <span>📐</span>
+    <strong>{measurementResult}</strong>
+
+    <button
+      type="button"
+      onClick={() => setMeasurementResult(null)}
+    >
+      ×
+    </button>
+  </div>
+)}
+
 
         <div className="map-info">
 
@@ -2650,8 +3062,6 @@ if (!token) {
     </div>
 
   );
-
 }
-
 
 export default App;

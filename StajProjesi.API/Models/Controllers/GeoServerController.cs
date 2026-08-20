@@ -18,13 +18,16 @@ namespace StajProjesi.API.Controllers
             _geoServerService = geoServerService;
         }
 
+
         // =====================================================
-        // KULLANICI ID'SİNİ JWT'DEN AL
+        // JWT'DEN KULLANICI ID'SİNİ AL
         // =====================================================
+
         private int GetUserId()
         {
             var userIdClaim =
-                User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                User.FindFirst(
+                    ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(userIdClaim))
             {
@@ -32,22 +35,43 @@ namespace StajProjesi.API.Controllers
                     "Kullanıcı kimliği bulunamadı.");
             }
 
-            return int.Parse(userIdClaim);
+            if (!int.TryParse(
+                    userIdClaim,
+                    out var userId))
+            {
+                throw new UnauthorizedAccessException(
+                    "Geçersiz kullanıcı kimliği.");
+            }
+
+            return userId;
         }
 
+
         // =====================================================
-        // GEOSERVER'DAN NOKTALARI GETİR
+        // POINT
+        //
+        // GeoServer SQL View:
+        // point_view
+        //
+        // SQL View içerisinde:
+        // is_deleted = false
+        // is_active = true
+        //
+        // GeoServer CQL_FILTER:
+        // inserted_user_id = userId
         // =====================================================
+
         [HttpGet("point")]
         public async Task<IActionResult> GetPoints()
         {
             try
             {
-                var userId = GetUserId();
+                var userId =
+                    GetUserId();
 
                 var result =
                     await _geoServerService.GetFeaturesAsync(
-                        "tbl_point",
+                        "point_view",
                         userId);
 
                 return Content(
@@ -74,19 +98,32 @@ namespace StajProjesi.API.Controllers
             }
         }
 
+
         // =====================================================
-        // GEOSERVER'DAN ÇİZGİLERİ GETİR
+        // LINE
+        //
+        // GeoServer SQL View:
+        // line_view
+        //
+        // SQL View içerisinde:
+        // is_deleted = false
+        // is_active = true
+        //
+        // GeoServer CQL_FILTER:
+        // inserted_user_id = userId
         // =====================================================
+
         [HttpGet("line")]
         public async Task<IActionResult> GetLines()
         {
             try
             {
-                var userId = GetUserId();
+                var userId =
+                    GetUserId();
 
                 var result =
                     await _geoServerService.GetFeaturesAsync(
-                        "tbl_line",
+                        "line_view",
                         userId);
 
                 return Content(
@@ -113,19 +150,32 @@ namespace StajProjesi.API.Controllers
             }
         }
 
+
         // =====================================================
-        // GEOSERVER'DAN POLYGONLARI GETİR
+        // POLYGON
+        //
+        // GeoServer SQL View:
+        // polygon_view
+        //
+        // SQL View içerisinde:
+        // is_deleted = false
+        // is_active = true
+        //
+        // GeoServer CQL_FILTER:
+        // inserted_user_id = userId
         // =====================================================
+
         [HttpGet("polygon")]
         public async Task<IActionResult> GetPolygons()
         {
             try
             {
-                var userId = GetUserId();
+                var userId =
+                    GetUserId();
 
                 var result =
                     await _geoServerService.GetFeaturesAsync(
-                        "tbl_polygon",
+                        "polygon_view",
                         userId);
 
                 return Content(
@@ -152,9 +202,18 @@ namespace StajProjesi.API.Controllers
             }
         }
 
+
         // =====================================================
-        // GEOSERVER'DAN TEK FEATURE GETİR
+        // TEK FEATURE GETİR
+        //
+        // Kullanım:
+        //
+        // GET /api/GeoServer/point_view/5
+        // GET /api/GeoServer/line_view/5
+        // GET /api/GeoServer/polygon_view/5
+        //
         // =====================================================
+
         [HttpGet("{layerName}/{featureId:int}")]
         public async Task<IActionResult> GetFeature(
             string layerName,
@@ -162,7 +221,8 @@ namespace StajProjesi.API.Controllers
         {
             try
             {
-                var userId = GetUserId();
+                var userId =
+                    GetUserId();
 
                 var result =
                     await _geoServerService.GetFeatureAsync(
@@ -174,7 +234,8 @@ namespace StajProjesi.API.Controllers
                 {
                     return NotFound(new
                     {
-                        message = "Feature bulunamadı."
+                        message =
+                            "Feature bulunamadı."
                     });
                 }
 

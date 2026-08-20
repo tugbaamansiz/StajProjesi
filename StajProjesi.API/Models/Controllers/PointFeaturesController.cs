@@ -47,7 +47,7 @@ namespace StajProjesi.API.Controllers
 
                 var geoServerResponse =
                     await _geoServerService.GetFeaturesAsync(
-                        "tbl_point",
+                        "point_view",
                         userId.Value);
 
                 var result =
@@ -87,7 +87,7 @@ namespace StajProjesi.API.Controllers
 
                 var geoServerResponse =
                     await _geoServerService.GetFeatureAsync(
-                        "tbl_point",
+                        "point_view",
                         id,
                         userId.Value);
 
@@ -431,6 +431,7 @@ namespace StajProjesi.API.Controllers
                     continue;
                 }
 
+
                 // =================================================
                 // ID
                 // =================================================
@@ -469,7 +470,8 @@ namespace StajProjesi.API.Controllers
 
                 string name = "";
 
-                if (properties.TryGetProperty(
+                if (TryGetPropertyIgnoreCase(
+                    properties,
                     "name",
                     out var nameProperty))
                 {
@@ -485,7 +487,8 @@ namespace StajProjesi.API.Controllers
 
                 string color = "#3388ff";
 
-                if (properties.TryGetProperty(
+                if (TryGetPropertyIgnoreCase(
+                    properties,
                     "color",
                     out var colorProperty))
                 {
@@ -537,6 +540,28 @@ namespace StajProjesi.API.Controllers
         }
 
 
+        private bool TryGetPropertyIgnoreCase(
+            JsonElement element,
+            string propertyName,
+            out JsonElement value)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(
+                    property.Name,
+                    propertyName,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+
+            value = default;
+            return false;
+        }
+
+
         // =====================================================
         // JWT'DEN USER ID AL
         // =====================================================
@@ -548,8 +573,8 @@ namespace StajProjesi.API.Controllers
                     ClaimTypes.NameIdentifier);
 
             if (int.TryParse(
-                    userIdValue,
-                    out var userId))
+                userIdValue,
+                out var userId))
             {
                 return userId;
             }

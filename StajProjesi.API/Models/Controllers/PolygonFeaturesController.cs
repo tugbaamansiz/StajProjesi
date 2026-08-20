@@ -30,7 +30,6 @@ namespace StajProjesi.API.Controllers
 
         // =====================================================
         // GET - TÜM POLYGONLAR
-        // ARTIK DOĞRUDAN DATABASE DEĞİL,
         // GEOSERVER ÜZERİNDEN GELİYOR
         // =====================================================
 
@@ -46,7 +45,7 @@ namespace StajProjesi.API.Controllers
 
                 var geoServerResponse =
                     await _geoServerService.GetFeaturesAsync(
-                        "tbl_polygon",
+                        "polygon_view",
                         userId.Value);
 
                 var result =
@@ -68,7 +67,6 @@ namespace StajProjesi.API.Controllers
 
         // =====================================================
         // GET - TEK POLYGON
-        // ARTIK DOĞRUDAN DATABASE DEĞİL,
         // GEOSERVER ÜZERİNDEN GELİYOR
         // =====================================================
 
@@ -84,7 +82,7 @@ namespace StajProjesi.API.Controllers
 
                 var geoServerResponse =
                     await _geoServerService.GetFeatureAsync(
-                        "tbl_polygon",
+                        "polygon_view",
                         id,
                         userId.Value);
 
@@ -543,7 +541,8 @@ namespace StajProjesi.API.Controllers
 
                 string name = "";
 
-                if (properties.TryGetProperty(
+                if (TryGetPropertyIgnoreCase(
+                    properties,
                     "name",
                     out var nameProperty))
                 {
@@ -558,7 +557,8 @@ namespace StajProjesi.API.Controllers
 
                 string color = "#3388ff";
 
-                if (properties.TryGetProperty(
+                if (TryGetPropertyIgnoreCase(
+                    properties,
                     "color",
                     out var colorProperty))
                 {
@@ -632,6 +632,27 @@ namespace StajProjesi.API.Controllers
             }
 
             return result;
+        }
+
+        private bool TryGetPropertyIgnoreCase(
+            JsonElement element,
+            string propertyName,
+            out JsonElement value)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(
+                    property.Name,
+                    propertyName,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+
+            value = default;
+            return false;
         }
 
         // =====================================================

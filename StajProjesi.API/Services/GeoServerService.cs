@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Web;
 
@@ -8,24 +7,40 @@ namespace StajProjesi.API.Services
     {
         private readonly IHttpClientFactory _httpClientFactory;
 
+        // =========================================================
+        // GEOSERVER
+        // =========================================================
+
         private const string GeoServerBaseUrl =
             "http://localhost:8080/geoserver";
 
         private const string Workspace =
             "staj_projesi";
 
+
+        // =========================================================
+        // SADECE SQL VIEW KATMANLARINA İZİN VER
+        // =========================================================
+
         private readonly string[] _allowedLayers =
         {
-            "tbl_point",
-            "tbl_line",
-            "tbl_polygon"
+            "point_view",
+            "line_view",
+            "polygon_view"
         };
+
+
+        // =========================================================
+        // CONSTRUCTOR
+        // =========================================================
 
         public GeoServerService(
             IHttpClientFactory httpClientFactory)
         {
-            _httpClientFactory = httpClientFactory;
+            _httpClientFactory =
+                httpClientFactory;
         }
+
 
         // =========================================================
         // GEOSERVER'DAN KULLANICIYA AİT FEATURE'LARI GETİR
@@ -40,43 +55,72 @@ namespace StajProjesi.API.Services
             var client =
                 _httpClientFactory.CreateClient();
 
-            var query =
-                HttpUtility.ParseQueryString(string.Empty);
 
-            query["service"] = "WFS";
-            query["version"] = "1.0.0";
-            query["request"] = "GetFeature";
+            // =====================================================
+            // WFS PARAMETRELERİ
+            // =====================================================
+
+            var query =
+                HttpUtility.ParseQueryString(
+                    string.Empty);
+
+
+            query["service"] =
+                "WFS";
+
+            query["version"] =
+                "1.0.0";
+
+            query["request"] =
+                "GetFeature";
+
             query["typeName"] =
                 $"{Workspace}:{layerName}";
+
             query["outputFormat"] =
                 "application/json";
 
-            // GeoServer'a filtreyi gönderiyoruz.
-            query["CQL_FILTER"] =
-                $"inserted_user_id = {userId} AND " +
-                $"is_deleted = false AND " +
-                $"is_active = true";
+
+            // =====================================================
+            // CQL FILTER
+            //
+            // ÖNEMLİ:
+            //
+            // is_deleted ve is_active artık SQL View içerisinde.
+            //
+            // Burada sadece kullanıcı filtresi kullanıyoruz.
+            // =====================================================
+
+            query["cql_filter"] =
+    $"inserted_user_id = {userId}";
+
 
             var url =
                 $"{GeoServerBaseUrl}/ows?{query}";
 
+
+            // =====================================================
+            // GEOSERVER'A İSTEK
+            // =====================================================
+
             var response =
                 await client.GetAsync(url);
+
 
             var content =
                 await response.Content.ReadAsStringAsync();
 
+
             if (!response.IsSuccessStatusCode)
             {
                 throw new HttpRequestException(
-                    $"GeoServer isteği başarısız oldu. " +
+                    "GeoServer isteği başarısız oldu. " +
                     $"HTTP {(int)response.StatusCode}: {content}");
             }
 
+
             // =====================================================
-            // ÖNEMLİ:
-            // GeoServer filtreyi uygulamasa bile backend tarafında
-            // ikinci kez kontrol ediyoruz.
+            // EK GÜVENLİK KONTROLÜ
             // =====================================================
 
             return FilterGeoServerResponse(
@@ -84,8 +128,9 @@ namespace StajProjesi.API.Services
                 userId);
         }
 
+
         // =========================================================
-        // GEOSERVER'DAN TEK FEATURE GETİR
+        // TEK FEATURE GETİR
         // =========================================================
 
         public async Task<string?> GetFeatureAsync(
@@ -98,68 +143,99 @@ namespace StajProjesi.API.Services
             var client =
                 _httpClientFactory.CreateClient();
 
-            var query =
-                HttpUtility.ParseQueryString(string.Empty);
 
-            query["service"] = "WFS";
-            query["version"] = "1.0.0";
-            query["request"] = "GetFeature";
+            var query =
+                HttpUtility.ParseQueryString(
+                    string.Empty);
+
+
+            query["service"] =
+                "WFS";
+
+            query["version"] =
+                "1.0.0";
+
+            query["request"] =
+                "GetFeature";
+
             query["typeName"] =
                 $"{Workspace}:{layerName}";
+
             query["outputFormat"] =
                 "application/json";
 
-            // Feature ID + kullanıcı + aktif/silinmemiş kontrolü
-            query["CQL_FILTER"] =
-                $"inserted_user_id = {userId} AND " +
-                $"is_deleted = false AND " +
-                $"is_active = true";
+
+            // =====================================================
+            // KULLANICI BAZLI CQL FILTER
+            // =====================================================
+
+            query["cql_filter"] =
+    $"inserted_user_id = {userId}";
+
 
             var url =
                 $"{GeoServerBaseUrl}/ows?{query}";
 
+
             var response =
                 await client.GetAsync(url);
+
 
             var content =
                 await response.Content.ReadAsStringAsync();
 
+
             if (!response.IsSuccessStatusCode)
             {
                 throw new HttpRequestException(
-                    $"GeoServer isteği başarısız oldu. " +
+                    "GeoServer isteği başarısız oldu. " +
                     $"HTTP {(int)response.StatusCode}: {content}");
             }
 
-            // Önce kullanıcı/aktif/silinmiş filtrelerini uygula
+
+            // =====================================================
+            // EK GÜVENLİK FİLTRESİ
+            // =====================================================
+
             var filteredContent =
                 FilterGeoServerResponse(
                     content,
                     userId);
 
-            // Sonra istediğimiz feature ID'sini bul
+
+            // =====================================================
+            // FEATURE ID'SİNİ BUL
+            // =====================================================
+
             try
             {
                 var json =
-                    JsonNode.Parse(filteredContent);
+                    JsonNode.Parse(
+                        filteredContent);
+
 
                 var features =
                     json?["features"]?.AsArray();
+
 
                 if (features == null)
                 {
                     return null;
                 }
 
+
                 foreach (var feature in features)
                 {
                     var idValue =
                         feature?["id"]?.ToString();
 
-                    // GeoServer FID:
-                    // tbl_point.27
-                    // tbl_line.24
-                    // tbl_polygon.XX
+
+                    // GeoServer FID örnekleri:
+                    //
+                    // point_view.1
+                    // line_view.5
+                    // polygon_view.12
+
                     if (idValue != null &&
                         idValue.EndsWith(
                             $".{featureId}"))
@@ -167,17 +243,28 @@ namespace StajProjesi.API.Services
                         var result =
                             new JsonObject
                             {
-                                ["type"] = "FeatureCollection",
+                                ["type"] =
+                                    "FeatureCollection",
+
                                 ["features"] =
-                                    new JsonArray(feature.DeepClone()),
-                                ["totalFeatures"] = 1,
-                                ["numberMatched"] = 1,
-                                ["numberReturned"] = 1
+                                    new JsonArray(
+                                        feature.DeepClone()),
+
+                                ["totalFeatures"] =
+                                    1,
+
+                                ["numberMatched"] =
+                                    1,
+
+                                ["numberReturned"] =
+                                    1
                             };
+
 
                         return result.ToJsonString();
                     }
                 }
+
 
                 return null;
             }
@@ -187,8 +274,9 @@ namespace StajProjesi.API.Services
             }
         }
 
+
         // =========================================================
-        // GEOSERVER CEVABINI BACKEND TARAFINDA FİLTRELE
+        // GEOSERVER CEVABINI EK OLARAK KONTROL ET
         // =========================================================
 
         private string FilterGeoServerResponse(
@@ -198,65 +286,75 @@ namespace StajProjesi.API.Services
             try
             {
                 var json =
-                    JsonNode.Parse(content);
+                    JsonNode.Parse(
+                        content);
+
 
                 if (json == null)
                 {
                     return content;
                 }
 
+
                 var features =
                     json["features"]?.AsArray();
+
 
                 if (features == null)
                 {
                     return content;
                 }
 
+
                 var filteredFeatures =
                     new JsonArray();
+
 
                 foreach (var feature in features)
                 {
                     var properties =
                         feature?["properties"];
 
+
                     if (properties == null)
                     {
                         continue;
                     }
 
-                    // ---------------------------------------------
-                    // inserted_user_id
-                    // ---------------------------------------------
+
+                    // =================================================
+                    // KULLANICI ID
+                    // =================================================
 
                     var insertedUserId =
-                        properties["inserted_user_id"]?
-                            .GetValue<int?>();
+                        properties[
+                            "inserted_user_id"]?
+                        .GetValue<int?>();
 
-                    // ---------------------------------------------
-                    // is_deleted
-                    // ---------------------------------------------
+
+                    // =================================================
+                    // SOFT DELETE
+                    // =================================================
 
                     var isDeleted =
-                        properties["is_deleted"]?
-                            .GetValue<bool?>();
+                        properties[
+                            "is_deleted"]?
+                        .GetValue<bool?>();
 
-                    // ---------------------------------------------
-                    // is_active
-                    // ---------------------------------------------
+
+                    // =================================================
+                    // AKTİF Mİ?
+                    // =================================================
 
                     var isActive =
-                        properties["is_active"]?
-                            .GetValue<bool?>();
+                        properties[
+                            "is_active"]?
+                        .GetValue<bool?>();
 
-                    // ---------------------------------------------
-                    // SADECE:
-                    //
-                    // aynı kullanıcı
-                    // is_deleted = false
-                    // is_active = true
-                    // ---------------------------------------------
+
+                    // =================================================
+                    // SADECE GEÇERLİ FEATURE'LAR
+                    // =================================================
 
                     if (insertedUserId == userId &&
                         isDeleted == false &&
@@ -267,29 +365,38 @@ namespace StajProjesi.API.Services
                     }
                 }
 
+
+                // =================================================
+                // FİLTRELENMİŞ SONUÇ
+                // =================================================
+
                 json["features"] =
                     filteredFeatures;
+
 
                 json["totalFeatures"] =
                     filteredFeatures.Count;
 
+
                 json["numberMatched"] =
                     filteredFeatures.Count;
 
+
                 json["numberReturned"] =
                     filteredFeatures.Count;
+
 
                 return json.ToJsonString();
             }
             catch
             {
-                // JSON parse edilemezse orijinal cevabı döndür.
                 return content;
             }
         }
 
+
         // =========================================================
-        // KATMAN KONTROLÜ
+        // GEOSERVER KATMAN KONTROLÜ
         // =========================================================
 
         private void ValidateLayer(
